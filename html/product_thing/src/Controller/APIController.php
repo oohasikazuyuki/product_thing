@@ -19,7 +19,8 @@ class APIController extends AppController
         parent::initialize();
         $this->loadComponent('RequestHandler');
         $this->loadComponent('Flash');
-        $this->loadComponent('Paginator');
+
+
     }
 
     public function index(): void
@@ -76,14 +77,16 @@ class APIController extends AppController
             $year = $this->request->getData('year');
             $quarter = $this->request->getData('quarter');
             $cityID = $this->request->getData('city'); // ユーザーが選択した都市ID
-            if(is_array($cityID)){
-                foreach ($cityID as $city){
-                    $this->displayPrice($prefectureCode,$city,$year,$quarter);
-                }
+            if(is_array($cityID) && !empty($cityID)){
+                $cityID = reset($cityID);
             }
 
+            // yearが配列の場合、最初の要素を取得
+
             // displayPriceメソッドにリダイレクト
-      //      return $this->redirect(['action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
+
+
+        //  return $this->redirect(['controller'=>'API','action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
         }
 
 
@@ -112,6 +115,9 @@ class APIController extends AppController
             )
         );
 
+
+        //javascで選択がされているかを確認
+
         $context = stream_context_create($content);
 
         $response = file_get_contents(
@@ -124,30 +130,28 @@ class APIController extends AppController
         }
 
         $this->set('prefectures', $this->getPrefectures());
-        $cities = null;
+        $cityID = null;
         if(isset($decode_response['data']) && is_array($decode_response['data'])) {
-         $cities = array_combine(
+         $cityID = array_combine(
                 array_column($decode_response['data'], 'id'),
                 array_column($decode_response['data'], 'name')
             );
-         $this->set('cities', $cities);
+         $this->set('cityID', $cityID);
         }else{
-            $this->set('cities', null);
+            $this->set('cityID', null);
             error_log('APIからのデータ取得に失敗しました。');
         }
 
-        $year = $this->getYear('years');
+
+
+        $year = $this->getYear();
         $this->set('years', $year);
 
-        $quauters = $this->getQuarters('quaters');
+        $quauters = $this->getQuarters();
         $this->set('quarters', $quauters);
 
 
-
-
-
-        $this->redirect(['action'=>'displayPrice','prefectureCode'=>$prefectureCode,'cityID'=>$cities,'year'=>$year,'quarter'=>$quauters]);
-      // echo $baseurl2.$prefectureCode.'&year='.$year.'&quarter='.$quauters.'&city='.$cities;
+      // echo $baseurl  2.$prefectureCode.'&year='.$year.'&quarter='.$quauters.'&city='.$cities;
 
      //   $this->redirect(['action'=>'selectAPI','prefectureCode'=>$prefectureCode,'year'=>$year]);
 
@@ -163,16 +167,14 @@ class APIController extends AppController
    //     echo $decode_response;
     }
 
-    public function displayPrice($prefectureCode,$cityID,$year,$quarter)
+    public function displayPrice($cityID,$year,$quarter): void
     {
 
-        //APIを呼び出して不動産取引価格情報を取得する
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
-        $query =[
-            'area'=>$prefectureCode,
-            'city'=>$cityID,
-            'year'=>$year,
-            'quarter'=>$quarter
+        $query = [
+            'city' => $cityID,
+            'year' => $year,
+            'quarter' => $quarter
         ];
 
         $header = array(
@@ -180,7 +182,6 @@ class APIController extends AppController
             'Context-Length: ' . 20,
             'Ocp-Apim-Subscription-Key: 2f8763d2bb7e41feb2485d92d1e426c4'
         );
-        echo $base_url.http_build_query($query);
 
         $content = array(
             'http' => array(
@@ -192,14 +193,21 @@ class APIController extends AppController
         );
         $context = stream_context_create($content);
 
-        $response = file_get_contents(
-            $base_url.http_build_query($query),false,$context);
 
+        $response = file_get_contents($base_url . http_build_query($query), false, $context);
 
-        echo $response;
+        if ($response === false) {
+            error_log('APIからのデータ取得に失敗しました。');
+            // ここでエラーメッセージを設定または例外を投げる
+            throw new \Exception("APIからのデータ取得に失敗しました。");
+        }
 
+        $decode_response = json_decode(gzdecode($response));
+
+        if ($decode_response === null) {
+            error_log($response);
+        }
     }
-
     public function getPrefectures()
     {
 
@@ -280,7 +288,7 @@ class APIController extends AppController
     public function getQuarters()
     {
         return [
-            '1' => '1月〜３月',
+            '1' => '1月〜3月',
             '2' => '4月〜6月',
             '3' => '7月〜9月',
             '4' => '10月〜12月',
