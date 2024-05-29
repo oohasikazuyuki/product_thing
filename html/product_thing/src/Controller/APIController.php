@@ -3,8 +3,8 @@ namespace App\Controller;
 use Cake\Core\Configure;
 use Cake\Http\Client;
 use Cake\Log\Log;
+use function PHPUnit\Framework\containsOnly;
 use function PHPUnit\Framework\returnArgument;
-
 
 class APIController extends AppController
 {
@@ -19,6 +19,7 @@ class APIController extends AppController
         parent::initialize();
         $this->loadComponent('RequestHandler');
         $this->loadComponent('Flash');
+
 
 
     }
@@ -71,6 +72,7 @@ class APIController extends AppController
 
     public function selectAPI($prefectureCode = null,$year = null)
     {
+        
 
         if ($this->request->is('post')) {
             $prefectureCode = $this->request->getData('prefecture');
@@ -85,9 +87,23 @@ class APIController extends AppController
 
             // displayPriceメソッドにリダイレクト
 
-
+            if (!empty($prefectureCode) && !empty($cityID) && !empty($year) && $this->request->is('post')) {
+                return $this->redirect([
+                    'controller' => 'API',
+                    'action' => 'display_price',
+                    'prefectureCode' => $prefectureCode,
+                    'cityID' => $cityID,
+                    'year' => $year,
+                ]);
+            }
+            $this->set('prefectures',$this->getPrefectures());
+            $this->set('years',$this->getYear());
+            $this->set('cityID',null);
+    
+    
         //  return $this->redirect(['controller'=>'API','action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
         }
+        
 
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
@@ -143,12 +159,20 @@ class APIController extends AppController
         }
 
 
-
         $year = $this->getYear();
         $this->set('years', $year);
 
-        $quauters = $this->getQuarters();
-        $this->set('quarters', $quauters);
+       
+        
+
+
+       
+
+    
+
+
+
+       
 
 
       // echo $baseurl  2.$prefectureCode.'&year='.$year.'&quarter='.$quauters.'&city='.$cities;
@@ -167,14 +191,18 @@ class APIController extends AppController
    //     echo $decode_response;
     }
 
-    public function displayPrice($cityID,$year,$quarter): void
+    public function displayPrice($prefectureCode,$cityID,$year)
     {
+       // $param = $this->request->getParam('prefectureCode');
+        $this->set(compact('prefectureCode','cityID','year'));
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
         $query = [
-            'city' => $cityID,
             'year' => $year,
-            'quarter' => $quarter
+            'area'=> $prefectureCode,
+            'city' => $cityID,
+            
+            
         ];
 
         $header = array(
@@ -192,21 +220,21 @@ class APIController extends AppController
             )
         );
         $context = stream_context_create($content);
+    
 
 
         $response = file_get_contents($base_url . http_build_query($query), false, $context);
-
+        pr($base_url . http_build_query($query));
+        
         if ($response === false) {
             error_log('APIからのデータ取得に失敗しました。');
             // ここでエラーメッセージを設定または例外を投げる
             throw new \Exception("APIからのデータ取得に失敗しました。");
         }
 
-        $decode_response = json_decode(gzdecode($response));
+        pr(json_decode(gzdecode($response),true));
 
-        if ($decode_response === null) {
-            error_log($response);
-        }
+        
     }
     public function getPrefectures()
     {
@@ -285,13 +313,4 @@ class APIController extends AppController
         ];
     }
 
-    public function getQuarters()
-    {
-        return [
-            '1' => '1月〜3月',
-            '2' => '4月〜6月',
-            '3' => '7月〜9月',
-            '4' => '10月〜12月',
-        ];
-    }
 }

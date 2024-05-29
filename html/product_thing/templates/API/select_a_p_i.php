@@ -17,33 +17,30 @@
     'type' => 'select',
     'options' => $years
 ]) ?>
-<?= $this->Form->control('quarters', [
-    'label' => '四半期',
-    'type' => 'select',
-    'options' => $quarters
-]) ?>
 
 
 
 
 
-<?= $this->Form->button('検索') ?>
+
+<?= $this->Form->submit('検索') ?>
 <?= $this->Form->end() ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     form.addEventListener('submit', function(event) {
-        event.preventDefault(); // 通常のフォーム送信を防ぎます
+       
 
         // 必須フィールドのチェック
         const prefecture = document.getElementById('prefecture').value;
         const city = document.getElementById('city').value;
         const year = document.getElementById('year').value;
-        const quarters = document.getElementById('quaters').value;
+        
 
-        if (prefecture && city && year && quarters) {
-            form.submit(); // 全てのフィールドが入力されていれば送信
+        if (prefecture && city && year) {
+          event.preventDefault();
+            form.submit();
         } else {
             alert('全てのフィールドを入力してください。');
         }
