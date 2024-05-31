@@ -70,9 +70,9 @@ class APIController extends AppController
     }
 
 
-    public function selectAPI($prefectureCode = null,$year = null)
+    public function selectAPI($prefectureCode = null,$cityID = null,$year = null)
     {
-        
+
 
         if ($this->request->is('post')) {
             $prefectureCode = $this->request->getData('prefecture');
@@ -82,7 +82,9 @@ class APIController extends AppController
             if(is_array($cityID) && !empty($cityID)){
                 $cityID = reset($cityID);
             }
-
+            if(is_array($year) && !empty($year)){
+                $year = reset($year);
+            }
             // yearが配列の場合、最初の要素を取得
 
             // displayPriceメソッドにリダイレクト
@@ -91,19 +93,21 @@ class APIController extends AppController
                 return $this->redirect([
                     'controller' => 'API',
                     'action' => 'display_price',
-                    'prefectureCode' => $prefectureCode,
-                    'cityID' => $cityID,
+                    '?'=>[
+                    'area' => $prefectureCode,
+                    'city' => $cityID,
                     'year' => $year,
+                    ]
                 ]);
             }
             $this->set('prefectures',$this->getPrefectures());
             $this->set('years',$this->getYear());
             $this->set('cityID',null);
-    
-    
+
+
         //  return $this->redirect(['controller'=>'API','action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
         }
-        
+
 
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
@@ -148,7 +152,7 @@ class APIController extends AppController
         $this->set('prefectures', $this->getPrefectures());
         $cityID = null;
         if(isset($decode_response['data']) && is_array($decode_response['data'])) {
-         $cityID = array_combine(
+             $cityID = array_combine(
                 array_column($decode_response['data'], 'id'),
                 array_column($decode_response['data'], 'name')
             );
@@ -162,17 +166,17 @@ class APIController extends AppController
         $year = $this->getYear();
         $this->set('years', $year);
 
-       
-        
-
-
-       
-
-    
 
 
 
-       
+
+
+
+
+
+
+
+
 
 
       // echo $baseurl  2.$prefectureCode.'&year='.$year.'&quarter='.$quauters.'&city='.$cities;
@@ -191,18 +195,22 @@ class APIController extends AppController
    //     echo $decode_response;
     }
 
-    public function displayPrice($prefectureCode,$cityID,$year)
+
+
+
+    public function displayPrice($prefectureCode = null,$cityID = null,$year = null)
     {
-       // $param = $this->request->getParam('prefectureCode');
-        $this->set(compact('prefectureCode','cityID','year'));
+     $area  = $this->request->getQuery('area');
+     $city = $this->request->getQuery('city');
+     $year = $this->request->getQuery('year');
+
+    $this->set(compact('prefectureCode', 'cityID', 'year'));
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
         $query = [
-            'year' => $year,
-            'area'=> $prefectureCode,
-            'city' => $cityID,
-            
-            
+            'area'=> $area,
+            'city' => $city,
+            'year' => $year
         ];
 
         $header = array(
@@ -220,21 +228,65 @@ class APIController extends AppController
             )
         );
         $context = stream_context_create($content);
-    
+
 
 
         $response = file_get_contents($base_url . http_build_query($query), false, $context);
-        pr($base_url . http_build_query($query));
-        
+
+
         if ($response === false) {
             error_log('APIからのデータ取得に失敗しました。');
             // ここでエラーメッセージを設定または例外を投げる
             throw new \Exception("APIからのデータ取得に失敗しました。");
         }
+        $data = json_decode(gzdecode($response), true);
 
-        pr(json_decode(gzdecode($response),true));
 
-        
+        $defaultData = [
+            'PriceCategory' => null,
+            'Type' => null,
+            'MunicipalityCode' => null,
+            'Prefecture' => null,
+            'Municipality' => null,
+            'DistrictName' => null,
+            'TradePrice' => null,
+            'FloorPlan' => null,
+            'Area' => null,
+            'BuildingYear' => null,
+            'Structure' => null,
+            'Use' => null,
+            'Purpose' => null,
+            'CityPlanning' => null,
+            'CoverageRatio' => null,
+            'FloorAreaRatio' => null,
+            'Period' => null,
+            'Renovation' => null
+        ];
+  //     debug(json_decode(gzdecode($response),true));
+    //    debug($data);
+        if (!is_array($data)) {
+            $data = [];
+        }
+
+        // ページネーションの設定
+        $page = $this->request->getQuery('page', 1);
+        $limit = 10;
+        $total = count($data);
+        $start = ($page - 1) * $limit;
+        $paginatedData = array_slice($data, $start, $limit);
+
+        $this->set('data', $paginatedData);
+        $this->set('page', $page);
+        $this->set('limit', $limit);
+        $this->set('total', $total);
+        $this->set('pages', ceil($total / $limit));
+
+        $data = array_merge($defaultData, $data);
+        $this->set('data', $data);
+       // pr($data);
+      //  pr(json_decode(gzdecode($response),true));
+
+
     }
     public function getPrefectures()
     {

@@ -1,6 +1,6 @@
 <!-- select_a_p_i.php -->
 <h1>条件選択画面</h1>
-<?= $this->Form->create() ?>
+<?= $this->Form->create(null,['url'=>['action'=>'selectAPI']]) ?>
 <?= $this->Form->control('prefecture', [
     'label' => '都道府県',
     'type' => 'select',
@@ -23,7 +23,7 @@
 
 
 
-<?= $this->Form->submit('検索') ?>
+<?= $this->Form->button(__('検索')) ?>
 <?= $this->Form->end() ?>
 
 <script>
