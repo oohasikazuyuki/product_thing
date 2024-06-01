@@ -28,7 +28,7 @@ class APIController extends AppController
     public function index()
     {
 
-        //$this->redirect(['action' => 'selectAPI']);
+        $this->redirect(['action' => 'selectAPI']);
 
     }
 
@@ -267,7 +267,7 @@ class APIController extends AppController
 
         // ページネーションの設定
         $page = $this->request->getQuery('page', 1);
-        $limit = 10;
+        $limit = 30;
         $total = 0;
         $start = ($page - 1) * $limit;
         $paginatedData = [];
