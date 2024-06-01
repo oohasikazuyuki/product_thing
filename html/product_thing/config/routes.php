@@ -58,7 +58,7 @@ return function (RouteBuilder $routes): void {
          * to use (in this case, templates/Pages/home.php)...
          */
 
-      //  $builder->connect('/', ['controller' => 'API', 'action' => 'selectAPI']);
+        $builder->connect('/', ['controller' => 'API', 'action' => 'index']);
         $builder->connect('/API', ['controller' => 'API', 'action' => 'r_EstateAPI']);
         $builder->connect('/API/select_a_p_i', ['controller' => 'API', 'action' => 'selectAPI']);
         $builder->connect(
