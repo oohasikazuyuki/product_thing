@@ -20,7 +20,7 @@
 <h1>不動産取引価格情報</h1>
 
 <?php // デバッグ用にデータを出力 ?>
-<!--<pre><?php print_r($data); ?></pre>=-->
+
 
 <?php if (!empty($data)): ?>
     <table>
@@ -37,22 +37,25 @@
         </tr>
         </thead>
         <tbody>
-        <?php foreach ($data as $record):?>
+        <?php
+
+        foreach ($data as $record):?>
+            <?php if (is_array($record)): ?>
                 <tr>
                     <td><?= htmlspecialchars($record['PriceCategory'] ?? 'N/A'); ?></td>
                     <td><?= htmlspecialchars($record['Type'] ?? 'N/A'); ?></td>
                     <td><?= htmlspecialchars($record['Prefecture'] ?? 'N/A'); ?></td>
                     <td><?= htmlspecialchars($record['Municipality'] ?? 'N/A'); ?></td>
                     <td><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
-                    <td><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
-                    <td><?= htmlspecialchars($record['Area'] ?? 'N/A'); ?> m²</td>
-                    <td><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
+                    <td style="text-align: right"><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
+                    <td style="text-align: right"><?= h($record['Area'] ?? 'N/A'); ?> m²</td>
+                    <td><?= h($record['Period'] ?? 'N/A'); ?></td>
                 </tr>
-
+            <?php else: ?>
                 <tr>
                     <td colspan="9">Invalid data format: <?= h($record); ?></td>
                 </tr>
-
+            <?php endif; ?>
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -61,9 +64,7 @@
             <?php if ($page > 1): ?>
                 <li><?= $this->Html->link('< ' . __('前へ'), ['?' => array_merge($this->request->getQuery(), ['page' => $page - 1])], ['escape' => false]) ?></li>
             <?php endif; ?>
-            <?php for ($i = 1; $i <= $pages; $i++): ?>
-                <li><?= $this->Html->link($i, ['?' => array_merge($this->request->getQuery(), ['page' => $i])]) ?></li>
-            <?php endfor; ?>
+
             <?php if ($page < $pages): ?>
                 <li><?= $this->Html->link(__('次へ') . ' >', ['?' => array_merge($this->request->getQuery(), ['page' => $page + 1])], ['escape' => false]) ?></li>
             <?php endif; ?>

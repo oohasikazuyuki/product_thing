@@ -3,6 +3,7 @@ namespace App\Controller;
 use Cake\Core\Configure;
 use Cake\Http\Client;
 use Cake\Log\Log;
+use Composer\Util\Zip;
 use function PHPUnit\Framework\containsOnly;
 use function PHPUnit\Framework\returnArgument;
 
@@ -24,15 +25,17 @@ class APIController extends AppController
 
     }
 
-    public function index(): void
+    public function index()
     {
-        $this->viewBuilder()->setLayout('API');
+
+        //$this->redirect(['action' => 'selectAPI']);
+
     }
 
 
     public function rEstateAPI()
     {
-        $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?year=2015&quarter=2&city=13102&priceClassification=01';
+        $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?year=2016&quarter=2&city=14100&priceClassification=01';
 
         $query = ['year'=>'2015','quarter'=>'2','city'=>'13102','priceClassification'=>'01'];
         $header = array(
@@ -54,7 +57,7 @@ class APIController extends AppController
         $response = file_get_contents(
             $base_url,false,$context);
        // file_put_contents('/var/www/html/product_thing/logs/aaa.zip', $response, FILE_APPEND);
-        pr(json_decode(gzdecode($response),true));
+        //pr(json_decode(gzdecode($response),true));
 
 
 // https://qiita.com/api/v2/tags/PHP/items?page=1&per_page=5
@@ -203,7 +206,10 @@ class APIController extends AppController
      $area  = $this->request->getQuery('area');
      $city = $this->request->getQuery('city');
      $year = $this->request->getQuery('year');
-
+     if($area == 00 || $city == 00 || $year == 00){
+         $this->Flash->error('都道府県、市区町村、年度を選択してください。');
+         return $this->redirect(['action'=>'selectAPI']);
+     }
     $this->set(compact('prefectureCode', 'cityID', 'year'));
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
@@ -232,36 +238,27 @@ class APIController extends AppController
 
 
         $response = file_get_contents($base_url . http_build_query($query), false, $context);
-
+        $return = true;
 
         if ($response === false) {
+            $return = false;
+            $data= array();
             error_log('APIからのデータ取得に失敗しました。');
             // ここでエラーメッセージを設定または例外を投げる
             throw new \Exception("APIからのデータ取得に失敗しました。");
         }
-        $data = json_decode(gzdecode($response), true);
+        if($response === '{"message":"検索結果がありません。"}'){
+            $return = false;
+            $data  = array();
+        }
+
+        if($return) {
+            $data = json_decode(gzdecode($response), true);
+        }
 
 
-        $defaultData = [
-            'PriceCategory' => null,
-            'Type' => null,
-            'MunicipalityCode' => null,
-            'Prefecture' => null,
-            'Municipality' => null,
-            'DistrictName' => null,
-            'TradePrice' => null,
-            'FloorPlan' => null,
-            'Area' => null,
-            'BuildingYear' => null,
-            'Structure' => null,
-            'Use' => null,
-            'Purpose' => null,
-            'CityPlanning' => null,
-            'CoverageRatio' => null,
-            'FloorAreaRatio' => null,
-            'Period' => null,
-            'Renovation' => null
-        ];
+
+
   //     debug(json_decode(gzdecode($response),true));
     //    debug($data);
         if (!is_array($data)) {
@@ -271,18 +268,22 @@ class APIController extends AppController
         // ページネーションの設定
         $page = $this->request->getQuery('page', 1);
         $limit = 10;
-        $total = count($data);
+        $total = 0;
         $start = ($page - 1) * $limit;
-        $paginatedData = array_slice($data, $start, $limit);
+        $paginatedData = [];
+        if(isset($data['data'])){
+            $paginatedData = array_slice($data['data'], $start, $limit);
+            $total = count($data['data']);
+        }
+
 
         $this->set('data', $paginatedData);
+
         $this->set('page', $page);
         $this->set('limit', $limit);
         $this->set('total', $total);
         $this->set('pages', ceil($total / $limit));
-
-        $data = array_merge($defaultData, $data);
-        $this->set('data', $data);
+     //   $this->set('data', $data);
        // pr($data);
       //  pr(json_decode(gzdecode($response),true));
 
@@ -292,6 +293,7 @@ class APIController extends AppController
     {
 
         return [
+            00 => '',
             '01' => '北海道',
             '02' => '青森県',
             '03' => '岩手県',
@@ -345,7 +347,6 @@ class APIController extends AppController
     public function getYear()
     {
         return [
-            '2015' => '2015年',
             '2016' => '2016年',
             '2017' => '2017年',
             '2018' => '2018年',

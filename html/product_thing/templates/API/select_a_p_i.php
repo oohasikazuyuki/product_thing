@@ -7,7 +7,7 @@
     'options' => $prefectures,
 ]) ?>
 <?= $this->Form->control('city', [
-    'label' => '市区町村',
+    'label' => '市区町村(区を持つ市は区を選択してください)',
     'type' => 'select',
     'options' => $cityID
 ]) ?>
@@ -30,13 +30,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     form.addEventListener('submit', function(event) {
-       
+
 
         // 必須フィールドのチェック
         const prefecture = document.getElementById('prefecture').value;
         const city = document.getElementById('city').value;
         const year = document.getElementById('year').value;
-        
+
 
         if (prefecture && city && year) {
           event.preventDefault();
