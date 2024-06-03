@@ -139,7 +139,7 @@ class APIController extends AppController
         );
 
 
-        //javascで選択がされているかを確認
+        
 
         $context = stream_context_create($content);
 
@@ -165,7 +165,7 @@ class APIController extends AppController
             error_log('APIからのデータ取得に失敗しました。');
         }
 
-
+        //年度をgetYearメソッドから取得
         $year = $this->getYear();
         $this->set('years', $year);
 
@@ -203,6 +203,7 @@ class APIController extends AppController
 
     public function displayPrice($prefectureCode = null,$cityID = null,$year = null)
     {
+        //前のメソッドからGETで値を取得
      $area  = $this->request->getQuery('area');
      $city = $this->request->getQuery('city');
      $year = $this->request->getQuery('year');
@@ -256,11 +257,6 @@ class APIController extends AppController
             $data = json_decode(gzdecode($response), true);
         }
 
-
-
-
-  //     debug(json_decode(gzdecode($response),true));
-    //    debug($data);
         if (!is_array($data)) {
             $data = [];
         }
@@ -289,6 +285,7 @@ class APIController extends AppController
 
 
     }
+    /** */
     public function getPrefectures()
     {
 
@@ -342,10 +339,23 @@ class APIController extends AppController
             '47' => '沖縄県',
         ];
     }
-
+        /**年度を取得するメソッド。現状2004年データはあまりない状態 */
     public function getYear()
     {
         return [
+            
+            '2004' => '2004年',
+            '2005' => '2005年',
+            '2006' => '2006年',
+            '2007' => '2007年',
+            '2008' => '2008年',
+            '2009' => '2009年',
+            '2010' => '2010年',
+            '2011' => '2011年',
+            '2012' => '2012年',
+            '2013' => '2013年',
+            '2014' => '2014年',
+            '2015' => '2015年',
             '2016' => '2016年',
             '2017' => '2017年',
             '2018' => '2018年',

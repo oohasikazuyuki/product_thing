@@ -32,14 +32,15 @@
             <table class="table table-striped table-bordered table-hover" id="dataTable">
                 <thead>
                 <tr>
-                    <th class="text-center">カテゴリ</th>
-                    <th class="text-center">種類</th>
-                    <th class="text-center">都道府県</th>
-                    <th class="text-center">市区町村</th>
-                    <th class="text-center">地区名</th>
-                    <th class="text-center">取引価格 (円)</th>
-                    <th class="text-center">面積 (m²)</th>
-                    <th class="text-center">取引時期</th>
+                    <th class="text-center bg-success">カテゴリ</th>
+                    <th class="text-center bg-success">種類</th>
+                    <th class="text-center bg-success">都道府県</th>
+                    <th class="text-center bg-success">市区町村</th>
+                    <th class="text-center bg-success">地区名</th>
+                    <th class="text-center bg-success">取引価格 (円)</th>
+                    <th class="text-center bg-success">面積 (m²)</th>
+                    <th class="text-center bg-success">取引時期</th>
+
                 </tr>
                 </thead>
                 <tbody>
