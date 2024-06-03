@@ -17,15 +17,35 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h1 class="mb-4 text-center">不動産取引価格情報</h1>
+    <h1 class="mb-4 text-center">
+        不動産取引価格情報
+      
+    </h1>
 
     <div class="row mb-4">
         <div class="col-md-6 offset-md-3">
-            <input type="text" id="searchInput" class="form-control" placeholder="検索...">
+            <input type="text" id="searchInput" class="form-control" placeholder="検索例：神奈川区">
         </div>
     </div>
 
-    <?php // デバッグ用にデータを出力 ?>
+    <!-- ページナビゲーション (上部) -->
+    <?php if ($page > 1 || $page < $pages): ?>
+        <nav aria-label="Page navigation example" class="mb-4">
+            <ul class="pagination justify-content-center">
+                <?php if ($page > 1): ?>
+                    <li class="page-item">
+                        <?= $this->Html->link('< ' . __('前へ'), ['?' => array_merge($this->request->getQuery(), ['page' => $page - 1])], ['class' => 'page-link', 'escape' => false]) ?>
+                    </li>
+                <?php endif; ?>
+
+                <?php if ($page < $pages): ?>
+                    <li class="page-item">
+                        <?= $this->Html->link(__('次へ') . ' >', ['?' => array_merge($this->request->getQuery(), ['page' => $page + 1])], ['class' => 'page-link', 'escape' => false]) ?>
+                    </li>
+                <?php endif; ?>
+            </ul>
+        </nav>
+    <?php endif; ?>
 
     <?php if (!empty($data)): ?>
         <div class="table-responsive">
@@ -40,7 +60,6 @@
                     <th class="text-center bg-success">取引価格 (円)</th>
                     <th class="text-center bg-success">面積 (m²)</th>
                     <th class="text-center bg-success">取引時期</th>
-
                 </tr>
                 </thead>
                 <tbody>
@@ -65,6 +84,8 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- ページナビゲーション (下部) -->
         <nav aria-label="Page navigation example" class="mt-4">
             <ul class="pagination justify-content-center">
                 <?php if ($page > 1): ?>
