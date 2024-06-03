@@ -32,28 +32,28 @@
             <table class="table table-striped table-bordered table-hover" id="dataTable">
                 <thead>
                 <tr>
-                    <th>カテゴリ</th>
-                    <th>種類</th>
-                    <th>都道府県</th>
-                    <th>市区町村</th>
-                    <th>地区名</th>
-                    <th class="text-right">取引価格 (円)</th>
-                    <th class="text-right">面積 (m²)</th>
-                    <th>取引時期</th>
+                    <th class="text-center">カテゴリ</th>
+                    <th class="text-center">種類</th>
+                    <th class="text-center">都道府県</th>
+                    <th class="text-center">市区町村</th>
+                    <th class="text-center">地区名</th>
+                    <th class="text-center">取引価格 (円)</th>
+                    <th class="text-center">面積 (m²)</th>
+                    <th class="text-center">取引時期</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php foreach ($data as $record): ?>
                     <?php if (is_array($record)): ?>
                         <tr>
-                            <td><?= htmlspecialchars($record['PriceCategory'] ?? 'N/A'); ?></td>
-                            <td><?= htmlspecialchars($record['Type'] ?? 'N/A'); ?></td>
-                            <td><?= htmlspecialchars($record['Prefecture'] ?? 'N/A'); ?></td>
-                            <td><?= htmlspecialchars($record['Municipality'] ?? 'N/A'); ?></td>
-                            <td><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['PriceCategory'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Type'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Prefecture'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Municipality'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars($record['Area'] ?? 'N/A'); ?> m²</td>
-                            <td><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
                         </tr>
                     <?php else: ?>
                         <tr>

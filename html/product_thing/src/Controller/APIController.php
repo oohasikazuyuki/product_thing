@@ -293,7 +293,6 @@ class APIController extends AppController
     {
 
         return [
-            00 => '',
             '01' => '北海道',
             '02' => '青森県',
             '03' => '岩手県',
