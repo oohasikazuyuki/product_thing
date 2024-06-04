@@ -9,12 +9,6 @@ use function PHPUnit\Framework\returnArgument;
 
 class APIController extends AppController
 {
-    public $paginate = [
-        'limit' => 10000,
-        'order' => [
-            'id' => 'asc'
-        ]
-    ];
     public function initialize(): void
     {
         parent::initialize();
