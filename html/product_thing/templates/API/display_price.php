@@ -19,7 +19,6 @@
 <div class="container mt-5">
     <h1 class="mb-4 text-center">
         不動産取引価格情報
-      
     </h1>
 
     <div class="row mb-4">
