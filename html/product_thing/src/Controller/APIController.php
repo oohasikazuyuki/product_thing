@@ -62,17 +62,9 @@ class APIController extends AppController
       //  $result = json_decode($response,true);
         pr($base_url.http_build_query($query));
     }
-    public function phpinfo()
-    {
-        echo  phpinfo();
-
-    }
-
 
     public function selectAPI($prefectureCode = null,$cityID = null,$year = null)
     {
-
-
         if ($this->request->is('post')) {
             $prefectureCode = $this->request->getData('prefecture');
             $year = $this->request->getData('year');
@@ -107,17 +99,11 @@ class APIController extends AppController
         //  return $this->redirect(['controller'=>'API','action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
         }
 
-
-
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
         $baseurl2 = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
         $query  = [
             'area' => $prefectureCode,
             'year' => $year,
-
-
-
-
         ];
 
         $header = array(
@@ -134,9 +120,6 @@ class APIController extends AppController
             )
         );
 
-
-        
-
         $context = stream_context_create($content);
 
         $response = file_get_contents(
@@ -151,11 +134,11 @@ class APIController extends AppController
         $this->set('prefectures', $this->getPrefectures());
         $cityID = null;
         if(isset($decode_response['data']) && is_array($decode_response['data'])) {
-             $cityID = array_combine(
+            $cityID = array_combine(
                 array_column($decode_response['data'], 'id'),
                 array_column($decode_response['data'], 'name')
             );
-         $this->set('cityID', $cityID);
+            $this->set('cityID', $cityID);
         }else{
             $this->set('cityID', null);
             error_log('APIからのデータ取得に失敗しました。');
@@ -165,33 +148,6 @@ class APIController extends AppController
         $year = $this->getYear();
         $this->set('years', $year);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-      // echo $baseurl  2.$prefectureCode.'&year='.$year.'&quarter='.$quauters.'&city='.$cities;
-
-     //   $this->redirect(['action'=>'selectAPI','prefectureCode'=>$prefectureCode,'year'=>$year]);
-
-
-
-       // echo var_export($decode_response['data'][1]['name'],true);
-
-
-        // file_put_contents('/var/www/html/product_thing/logs/aaa.zip', $response, FILE_APPEND);
-     //   pr(json_decode(gzdecode($response),true));
-
-
-   //     echo $decode_response;
     }
 
 
