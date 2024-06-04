@@ -20,16 +20,11 @@ class APIController extends AppController
         parent::initialize();
         $this->loadComponent('RequestHandler');
         $this->loadComponent('Flash');
-
-
-
     }
 
     public function index()
     {
-
         $this->redirect(['action' => 'selectAPI']);
-
     }
 
 
@@ -59,7 +54,6 @@ class APIController extends AppController
 // https://qiita.com/api/v2/tags/PHP/items?page=1&per_page=5
 
 // 結果はjson形式で返されるので
-      //  $result = json_decode($response,true);
         pr($base_url.http_build_query($query));
     }
 
