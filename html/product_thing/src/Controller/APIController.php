@@ -94,9 +94,6 @@ class APIController extends AppController
             $this->set('prefectures',$this->getPrefectures());
             $this->set('years',$this->getYear());
             $this->set('cityID',null);
-
-
-        //  return $this->redirect(['controller'=>'API','action' => 'displayPrice', $prefectureCode, $cityID, $year, $quarter]);
         }
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
@@ -149,9 +146,6 @@ class APIController extends AppController
         $this->set('years', $year);
 
     }
-
-
-
 
     public function displayPrice($prefectureCode = null,$cityID = null,$year = null)
     {
@@ -231,11 +225,6 @@ class APIController extends AppController
         $this->set('limit', $limit);
         $this->set('total', $total);
         $this->set('pages', ceil($total / $limit));
-     //   $this->set('data', $data);
-       // pr($data);
-      //  pr(json_decode(gzdecode($response),true));
-
-
     }
     /** */
     public function getPrefectures()
