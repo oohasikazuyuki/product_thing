@@ -190,6 +190,7 @@ class APIController extends AppController
         if($return) {
             $data = json_decode(gzdecode($response), true);
         }
+        
 
         if (!is_array($data)) {
             $data = [];
