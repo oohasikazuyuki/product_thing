@@ -56,10 +56,6 @@ class APIController extends AppController
 
         $response = file_get_contents(
             $base_url,false,$context);
-       // file_put_contents('/var/www/html/product_thing/logs/aaa.zip', $response, FILE_APPEND);
-        //pr(json_decode(gzdecode($response),true));
-
-
 // https://qiita.com/api/v2/tags/PHP/items?page=1&per_page=5
 
 // 結果はjson形式で返されるので
