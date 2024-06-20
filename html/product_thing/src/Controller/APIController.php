@@ -9,6 +9,8 @@ use function PHPUnit\Framework\returnArgument;
 
 class APIController extends AppController
 {
+
+
     public function initialize(): void
     {
         parent::initialize();
@@ -53,6 +55,7 @@ class APIController extends AppController
 
     public function selectAPI($prefectureCode = null,$cityID = null,$year = null)
     {
+        //データベースから選択できるようにしたい
         if ($this->request->is('post')) {
             $prefectureCode = $this->request->getData('prefecture');
             $year = $this->request->getData('year');
@@ -190,7 +193,7 @@ class APIController extends AppController
         if($return) {
             $data = json_decode(gzdecode($response), true);
         }
-        
+
 
         if (!is_array($data)) {
             $data = [];
@@ -214,6 +217,7 @@ class APIController extends AppController
         $this->set('limit', $limit);
         $this->set('total', $total);
         $this->set('pages', ceil($total / $limit));
+
     }
     /** */
     public function getPrefectures()
@@ -273,8 +277,6 @@ class APIController extends AppController
     public function getYear()
     {
         return [
-            
-            '2004' => '2004年',
             '2005' => '2005年',
             '2006' => '2006年',
             '2007' => '2007年',
