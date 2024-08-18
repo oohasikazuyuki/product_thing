@@ -99,7 +99,7 @@ class HtmlHelper extends Helper
      * Create a meta tag that is output inline:
      *
      * ```
-     * $this->Html->meta('icon', 'back.ico');
+     * $this->Html->meta('icon', 'favicon.ico');
      * ```
      *
      * Append the meta tag to custom view block "meta":
@@ -152,7 +152,7 @@ class HtmlHelper extends Helper
             ];
 
             if ($type === 'icon' && $content === null) {
-                $types['icon']['link'] = 'back.ico';
+                $types['icon']['link'] = 'favicon.ico';
             }
 
             if (isset($types[$type])) {
