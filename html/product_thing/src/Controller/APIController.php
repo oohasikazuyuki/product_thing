@@ -142,8 +142,11 @@ class APIController extends AppController
     {
         //前のメソッドからGETで値を取得
      $area  = $this->request->getQuery('area');
+
      $city = $this->request->getQuery('city');
+
      $year = $this->request->getQuery('year');
+     //値がない場合はエラーを表示
      if($area == 00 || $city == 00 || $year == 00){
          $this->Flash->error('都道府県、市区町村、年度を選択してください。');
          return $this->redirect(['action'=>'selectAPI']);
