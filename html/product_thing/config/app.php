@@ -47,7 +47,7 @@ return [
      *   paths for plugins, view templates and locale files respectively.
      */
     'App' => [
-        'API_KEY'=>'2f8763d2bb7e41feb2485d92d1e426c4',
+        'API_KEY' => env('API_KEY'),
         'namespace' => 'App',
         'encoding' => env('APP_ENCODING', 'UTF-8'),
         'defaultLocale' => env('APP_DEFAULT_LOCALE', 'en_US'),
