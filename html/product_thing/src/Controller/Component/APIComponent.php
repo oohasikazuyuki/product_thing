@@ -8,7 +8,6 @@ use Cake\Http\Client;
 class APIComponent extends Component
 {
 
-    const API_KEY = '2f8763d2bb7e41feb2485d92d1e426c4';
     const BASE_URL = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?year=2015&area=13';
 
     public function rEstateAPI(): string|bool
@@ -28,7 +27,7 @@ class APIComponent extends Component
         $header = array(
             "Content-Type: application/x-www-form-urlencoded",
             "Context-Length: " . strlen($data),
-            "Ocp-Apim-Subscription-Key: " . self::API_KEY
+            "Ocp-Apim-Subscription-Key: " . env('API_KEY')
         );
 
         $context = array(

@@ -32,7 +32,7 @@ class APIController extends AppController
         $header = array(
             'Content-Type: application/x-www-form-urlencoded',
             'Context-Length: ' . 20,
-            'Ocp-Apim-Subscription-Key: 2f8763d2bb7e41feb2485d92d1e426c4'
+            'Ocp-Apim-Subscription-Key: ' . env('API_KEY')
         );
         $content = array(
             'http' => array(
@@ -97,7 +97,7 @@ class APIController extends AppController
         $header = array(
             'Content-Type: application/x-www-form-urlencoded',
             'Context-Length: ' . 20,
-            'Ocp-Apim-Subscription-Key: 2f8763d2bb7e41feb2485d92d1e426c4'
+            'Ocp-Apim-Subscription-Key: ' . env('API_KEY')
         );
         $content = array(
             'http' => array(
@@ -163,7 +163,7 @@ class APIController extends AppController
         $header = array(
             'Content-Type: application/x-www-form-urlencoded',
             'Context-Length: ' . 20,
-            'Ocp-Apim-Subscription-Key: 2f8763d2bb7e41feb2485d92d1e426c4'
+            'Ocp-Apim-Subscription-Key: ' . env('API_KEY')
         );
 
         $content = array(
