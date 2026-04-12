@@ -268,6 +268,100 @@ class APIController extends AppController
         $this->set('googleMapsApiKey', env('GOOGLE_MAPS_API_KEY') ?: null);
 
     }
+
+    public function apiExplorer()
+    {
+        $apiOptions = $this->getLibraryApiOptions();
+        $selectedApi = 'XIT001';
+        $queryString = 'area=13&city=13101&year=2024';
+        $resultData = null;
+        $rawResult = null;
+        $requestUrl = null;
+        $errorMessage = null;
+
+        if ($this->request->is('post')) {
+            $selectedApi = (string)$this->request->getData('api_id');
+            $queryString = trim((string)$this->request->getData('query_string'));
+
+            if (!isset($apiOptions[$selectedApi])) {
+                $errorMessage = 'API IDが不正です。';
+            } else {
+                parse_str($queryString, $queryParams);
+                if (!is_array($queryParams)) {
+                    $queryParams = [];
+                }
+                $queryParams = array_filter($queryParams, function ($value) {
+                    return is_scalar($value) && trim((string)$value) !== '';
+                });
+
+                $header = [
+                    'Content-Type: application/x-www-form-urlencoded',
+                    'Context-Length: ' . 20,
+                    'Ocp-Apim-Subscription-Key: ' . env('API_KEY'),
+                ];
+                $content = [
+                    'http' => [
+                        'method' => 'GET',
+                        'header' => implode("\r\n", $header),
+                        'content' => '',
+                        'ignore_errors' => true,
+                    ],
+                ];
+                $context = stream_context_create($content);
+
+                $baseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/' . $selectedApi . '?';
+                $requestUrl = $baseUrl . http_build_query($queryParams);
+                $response = file_get_contents($requestUrl, false, $context);
+
+                if ($response === false) {
+                    $errorMessage = 'APIレスポンスの取得に失敗しました。';
+                } else {
+                    $decodedBody = $response;
+                    if (substr($response, 0, 2) === "\x1f\x8b") {
+                        $inflated = gzdecode($response);
+                        if ($inflated !== false) {
+                            $decodedBody = $inflated;
+                        }
+                    }
+                    $resultData = json_decode($decodedBody, true);
+
+                    if (!is_array($resultData)) {
+                        $errorMessage = 'JSONの解析に失敗しました。';
+                        $resultData = null;
+                    } else {
+                        $rawResult = json_encode($resultData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    }
+                }
+            }
+        }
+
+        $this->set(compact(
+            'apiOptions',
+            'selectedApi',
+            'queryString',
+            'resultData',
+            'rawResult',
+            'requestUrl',
+            'errorMessage'
+        ));
+    }
+
+    private function getLibraryApiOptions(): array
+    {
+        return [
+            'XIT001' => '不動産価格（取引価格・成約価格）情報取得API',
+            'XPT001' => '不動産価格情報のポイント (点) API',
+            'XPT002' => '地価公示・地価調査のポイント (点) API',
+            'XCT001' => '鑑定評価書情報API',
+            'XKT002' => '都市計画決定GISデータ（用途地域）API',
+            'XKT010' => '国土数値情報（医療機関）API',
+            'XKT016' => '国土数値情報（災害危険区域）API',
+            'XKT026' => '国土数値情報（洪水浸水想定区域）API',
+            'XGT001' => '指定緊急避難場所API',
+            'XST001' => '災害履歴API',
+        ];
+    }
+
     /** */
     public function getPrefectures()
     {
