@@ -131,7 +131,11 @@
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<?php if (!empty($googleMapsApiKey)): ?>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= urlencode($googleMapsApiKey) ?>&libraries=streetView"></script>
+<?php else: ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+<?php endif; ?>
 <?php
 $mapRecords = [];
 if (!empty($data) && is_array($data)) {
@@ -146,31 +150,8 @@ if (!empty($data) && is_array($data)) {
     document.addEventListener('DOMContentLoaded', (event) => {
         const defaultCenter = [139.7671, 35.6812];
         const defaultZoom = 10;
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: {
-                version: 8,
-                sources: {
-                    osm: {
-                        type: 'raster',
-                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                        tileSize: 256,
-                        attribution: '&copy; OpenStreetMap contributors'
-                    }
-                },
-                layers: [
-                    {
-                        id: 'osm',
-                        type: 'raster',
-                        source: 'osm'
-                    }
-                ]
-            },
-            center: defaultCenter,
-            zoom: defaultZoom
-        });
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
+        const googleMapsApiKey = <?= json_encode($googleMapsApiKey ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
         const mapStatus = document.getElementById('mapStatus');
         const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
@@ -272,19 +253,130 @@ if (!empty($data) && is_array($data)) {
                 .replace(/'/g, '&#039;');
         };
 
+        const createPopupHtml = function (record, formattedPrice) {
+            return '<div>' +
+                '<strong>' + escapeHtml(record.Prefecture) + ' ' + escapeHtml(record.Municipality) + '</strong><br>' +
+                '地区: ' + escapeHtml(record.DistrictName || 'N/A') + '<br>' +
+                '価格: ' + escapeHtml(formattedPrice) + '<br>' +
+                '建築年: ' + escapeHtml(record.BuildingYear || 'N/A') + '<br>' +
+                '間取り: ' + escapeHtml(record.FloorPlan || 'N/A') + '<br>' +
+                '建物構造: ' + escapeHtml(record.Structure || 'N/A') + '<br>' +
+                '用途: ' + escapeHtml(record.Purpose || 'N/A') + '<br>' +
+                '時期: ' + escapeHtml(record.Period || 'N/A') +
+                '</div>';
+        };
+
+        const mapAdapter = (function () {
+            if (useGoogleMaps) {
+                const googleMap = new google.maps.Map(document.getElementById('map'), {
+                    center: {lat: defaultCenter[1], lng: defaultCenter[0]},
+                    zoom: defaultZoom,
+                    streetViewControl: true,
+                    mapTypeControl: true,
+                    fullscreenControl: true
+                });
+
+                return {
+                    ready: function (callback) {
+                        callback();
+                    },
+                    addPoint: function (record, coordinates, color, popupHtml) {
+                        const marker = new google.maps.Marker({
+                            map: googleMap,
+                            position: {lat: coordinates[1], lng: coordinates[0]},
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 7,
+                                fillColor: color,
+                                fillOpacity: 0.9,
+                                strokeColor: '#1f2937',
+                                strokeWeight: 1
+                            }
+                        });
+                        const infoWindow = new google.maps.InfoWindow({content: popupHtml});
+                        marker.addListener('click', function () {
+                            infoWindow.open({
+                                anchor: marker,
+                                map: googleMap,
+                                shouldFocus: false
+                            });
+                        });
+                    },
+                    fitToBounds: function (plottedCoordinates) {
+                        const bounds = new google.maps.LatLngBounds();
+                        plottedCoordinates.forEach(function (coordinate) {
+                            bounds.extend({lat: coordinate[1], lng: coordinate[0]});
+                        });
+                        googleMap.fitBounds(bounds);
+                    }
+                };
+            }
+
+            const maplibreMap = new maplibregl.Map({
+                container: 'map',
+                style: {
+                    version: 8,
+                    sources: {
+                        osm: {
+                            type: 'raster',
+                            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                            tileSize: 256,
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }
+                    },
+                    layers: [
+                        {
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm'
+                        }
+                    ]
+                },
+                center: defaultCenter,
+                zoom: defaultZoom
+            });
+            maplibreMap.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+            return {
+                ready: function (callback) {
+                    maplibreMap.on('load', callback);
+                },
+                addPoint: function (record, coordinates, color, popupHtml) {
+                    new maplibregl.Marker({color: color})
+                        .setLngLat(coordinates)
+                        .setPopup(new maplibregl.Popup({offset: 25}).setHTML(popupHtml))
+                        .addTo(maplibreMap);
+                },
+                fitToBounds: function (plottedCoordinates) {
+                    const bounds = new maplibregl.LngLatBounds();
+                    plottedCoordinates.forEach(function (coordinate) {
+                        bounds.extend(coordinate);
+                    });
+                    maplibreMap.fitBounds(bounds, {
+                        padding: 40,
+                        maxZoom: 13
+                    });
+                }
+            };
+        })();
+
         const renderMapPoints = async function () {
             if (!Array.isArray(records) || records.length === 0) {
                 setMapStatus('表示対象データがありません。', 'warning');
                 return;
             }
 
-            setMapStatus('取引データから地図ポイントを作成中です。', 'secondary');
+            if (useGoogleMaps) {
+                setMapStatus('Google Mapsで表示中です。Pegman を使って Street View を表示できます。', 'info');
+            } else {
+                setMapStatus('MapLibreで表示中です。Google Maps APIキーを設定すると Pegman を利用できます。', 'secondary');
+            }
 
             const geocodeCache = new Map();
             const geocodeLimit = 20;
             let geocodeCount = 0;
             let plottedCount = 0;
-            const bounds = new maplibregl.LngLatBounds();
+            const plottedCoordinates = [];
 
             for (const record of records) {
                 let coordinates = extractCoordinates(record);
@@ -307,26 +399,10 @@ if (!empty($data) && is_array($data)) {
 
                 const price = toPriceNumber(record.TradePrice);
                 const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
-                const marker = new maplibregl.Marker({color: priceToColor(price)})
-                    .setLngLat(coordinates)
-                    .setPopup(new maplibregl.Popup({offset: 25}).setHTML(
-                        '<div>' +
-                        '<strong>' + escapeHtml(record.Prefecture) + ' ' + escapeHtml(record.Municipality) + '</strong><br>' +
-                        '地区: ' + escapeHtml(record.DistrictName || 'N/A') + '<br>' +
-                        '価格: ' + escapeHtml(formattedPrice) + '<br>' +
-                        '建築年: ' + escapeHtml(record.BuildingYear || 'N/A') + '<br>' +
-                        '間取り: ' + escapeHtml(record.FloorPlan || 'N/A') + '<br>' +
-                        '建物構造: ' + escapeHtml(record.Structure || 'N/A') + '<br>' +
-                        '用途: ' + escapeHtml(record.Purpose || 'N/A') + '<br>' +
-                        '時期: ' + escapeHtml(record.Period || 'N/A') +
-                        '</div>'
-                    ))
-                    .addTo(map);
-
-                if (marker) {
-                    plottedCount += 1;
-                    bounds.extend(coordinates);
-                }
+                const popupHtml = createPopupHtml(record, formattedPrice);
+                mapAdapter.addPoint(record, coordinates, priceToColor(price), popupHtml);
+                plottedCount += 1;
+                plottedCoordinates.push(coordinates);
             }
 
             if (plottedCount === 0) {
@@ -334,14 +410,15 @@ if (!empty($data) && is_array($data)) {
                 return;
             }
 
-            map.fitBounds(bounds, {
-                padding: 40,
-                maxZoom: 13
-            });
-            setMapStatus('地図に ' + plottedCount + ' 件の取引データを表示しました。', 'success');
+            mapAdapter.fitToBounds(plottedCoordinates);
+            if (useGoogleMaps) {
+                setMapStatus('Google Mapsに ' + plottedCount + ' 件を表示しました。PegmanでStreet View表示が可能です。', 'success');
+            } else {
+                setMapStatus('MapLibreに ' + plottedCount + ' 件を表示しました。', 'success');
+            }
         };
 
-        map.on('load', function () {
+        mapAdapter.ready(function () {
             renderMapPoints().catch(function () {
                 setMapStatus('地図データの表示中にエラーが発生しました。', 'danger');
             });

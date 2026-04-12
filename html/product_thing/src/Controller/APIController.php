@@ -220,6 +220,7 @@ class APIController extends AppController
         $this->set('limit', $limit);
         $this->set('total', $total);
         $this->set('pages', ceil($total / $limit));
+        $this->set('googleMapsApiKey', env('GOOGLE_MAPS_API_KEY') ?: null);
 
     }
     /** */
