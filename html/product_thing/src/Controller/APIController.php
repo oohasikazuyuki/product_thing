@@ -92,6 +92,9 @@ class APIController extends AppController
         $query = [
             'area' => $prefectureCode,
         ];
+        if (!empty($year)) {
+            $query['year'] = $year;
+        }
 
         $header = array(
             'Content-Type: application/x-www-form-urlencoded',

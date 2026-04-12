@@ -73,10 +73,16 @@
             }
         });
 
-        // 都道府県が変更されたときにのみフォームを送信
-        document.getElementById('prefecture').addEventListener('change', function() {
-            if (this.value) form.submit();
-        });
+        const prefecture = document.getElementById('prefecture');
+        const year = document.getElementById('year');
+        const requestCities = function () {
+            if (prefecture.value && year.value) {
+                form.submit();
+            }
+        };
+
+        prefecture.addEventListener('change', requestCities);
+        year.addEventListener('change', requestCities);
     });
 </script>
 </body>
