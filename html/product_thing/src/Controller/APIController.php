@@ -176,25 +176,70 @@ class APIController extends AppController
         );
         $context = stream_context_create($content);
 
+        $decodeResponse = function ($response) {
+            if (!is_string($response) || $response === '') {
+                return null;
+            }
 
+            $decodedBody = $response;
+            if (substr($response, 0, 2) === "\x1f\x8b") {
+                $inflated = gzdecode($response);
+                if ($inflated !== false) {
+                    $decodedBody = $inflated;
+                }
+            }
+
+            $json = json_decode($decodedBody, true);
+            return is_array($json) ? $json : null;
+        };
 
         $response = file_get_contents($base_url . http_build_query($query), false, $context);
-        $return = true;
-
         if ($response === false) {
-            $return = false;
-            $data= array();
             error_log('APIからのデータ取得に失敗しました。');
-            // ここでエラーメッセージを設定または例外を投げる
             throw new \Exception("APIからのデータ取得に失敗しました。");
         }
-        if($response === '{"message":"検索結果がありません。"}'){
-            $return = false;
-            $data  = array();
+
+        $data = $decodeResponse($response) ?? [];
+        if (isset($data['message']) && $data['message'] === '検索結果がありません。') {
+            $data = [];
         }
 
-        if($return) {
-            $data = json_decode(gzdecode($response), true);
+        if (isset($data['data']) && is_array($data['data'])) {
+            $pointBaseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XPT001?';
+            $pointResponse = file_get_contents($pointBaseUrl . http_build_query($query), false, $context);
+            $pointData = $decodeResponse($pointResponse);
+
+            if (is_array($pointData) && isset($pointData['data']) && is_array($pointData['data'])) {
+                $pointRows = array_values($pointData['data']);
+                $extractCoordinateValue = function (array $row, array $keys) {
+                    foreach ($keys as $key) {
+                        if (isset($row[$key]) && $row[$key] !== '') {
+                            return $row[$key];
+                        }
+                    }
+
+                    return null;
+                };
+
+                $longitudeKeys = ['Longitude', 'longitude', 'lng', 'Lon', 'LON', 'x'];
+                $latitudeKeys = ['Latitude', 'latitude', 'lat', 'Lat', 'LAT', 'y'];
+
+                foreach ($data['data'] as $index => &$record) {
+                    if (!is_array($record) || !isset($pointRows[$index]) || !is_array($pointRows[$index])) {
+                        continue;
+                    }
+
+                    $pointRecord = $pointRows[$index];
+                    $longitude = $extractCoordinateValue($pointRecord, $longitudeKeys);
+                    $latitude = $extractCoordinateValue($pointRecord, $latitudeKeys);
+
+                    if ($longitude !== null && $latitude !== null) {
+                        $record['Longitude'] = $longitude;
+                        $record['Latitude'] = $latitude;
+                    }
+                }
+                unset($record);
+            }
         }
 
 
