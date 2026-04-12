@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>不動産取引価格情報</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
     <style>
         .table th, .table td {
             vertical-align: middle;
@@ -13,6 +14,11 @@
             background-color: #343a40;
             color: #fff;
         }
+        #map {
+            width: 100%;
+            height: 420px;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -20,6 +26,11 @@
     <h1 class="mb-4 text-center">
         不動産取引価格情報
     </h1>
+
+    <div class="mb-4">
+        <h2 class="h5 mb-3">地図表示</h2>
+        <div id="map" aria-label="不動産データの地図"></div>
+    </div>
 
     <div class="row mb-4">
         <div class="col-md-6 offset-md-3">
@@ -109,8 +120,18 @@
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', (event) => {
+        const defaultCenter = [139.7671, 35.6812];
+        const defaultZoom = 10;
+        new maplibregl.Map({
+            container: 'map',
+            style: 'https://demotiles.maplibre.org/style.json',
+            center: defaultCenter,
+            zoom: defaultZoom
+        });
+
         const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('keyup', function () {
             const filter = searchInput.value.toLowerCase();
