@@ -370,6 +370,93 @@ class APIController extends AppController
         ));
     }
 
+    public function layerData()
+    {
+        $this->request->allowMethod(['get']);
+
+        $apiId = (string)$this->request->getQuery('api_id');
+        $allowedApiIds = [
+            'XCT001',
+            'XPT002',
+            'XKT001',
+            'XKT002',
+            'XKT003',
+            'XKT014',
+            'XKT023',
+            'XKT024',
+            'XKT030',
+            'XKT013',
+            'XKT031',
+        ];
+        if (!in_array($apiId, $allowedApiIds, true)) {
+            $payload = ['success' => false, 'message' => 'api_id is not allowed', 'data' => []];
+            return $this->response->withStatus(400)->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
+        }
+
+        $apiKey = (string)env('API_KEY');
+        if ($apiKey === '') {
+            $payload = ['success' => false, 'message' => 'API_KEY is missing', 'data' => []];
+            return $this->response->withStatus(500)->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
+        }
+
+        $queryParams = $this->request->getQueryParams();
+        unset($queryParams['api_id']);
+        $queryParams = array_filter($queryParams, function ($value) {
+            return is_scalar($value) && trim((string)$value) !== '';
+        });
+
+        $header = [
+            'Content-Type: application/x-www-form-urlencoded',
+            'Context-Length: ' . 20,
+            'Ocp-Apim-Subscription-Key: ' . $apiKey,
+        ];
+        $content = [
+            'http' => [
+                'method' => 'GET',
+                'header' => implode("\r\n", $header),
+                'content' => '',
+                'ignore_errors' => true,
+            ],
+        ];
+        $context = stream_context_create($content);
+        $baseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/' . $apiId . '?';
+        $requestUrl = $baseUrl . http_build_query($queryParams);
+        $response = file_get_contents($requestUrl, false, $context);
+
+        if ($response === false) {
+            $payload = ['success' => false, 'message' => 'failed to fetch layer data', 'request_url' => $requestUrl, 'data' => []];
+            return $this->response->withStatus(502)->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
+        }
+
+        $decoded = $this->decodeApiResponse($response);
+        if (!is_array($decoded)) {
+            $payload = ['success' => false, 'message' => 'failed to decode layer data', 'request_url' => $requestUrl, 'data' => []];
+            return $this->response->withStatus(502)->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
+        }
+
+        $data = isset($decoded['data']) && is_array($decoded['data']) ? $decoded['data'] : [];
+        $payload = ['success' => true, 'api_id' => $apiId, 'request_url' => $requestUrl, 'data' => $data];
+        return $this->response->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
+    }
+
+    private function decodeApiResponse(string $response): ?array
+    {
+        if ($response === '') {
+            return null;
+        }
+
+        $decodedBody = $response;
+        if (substr($response, 0, 2) === "\x1f\x8b") {
+            $inflated = gzdecode($response);
+            if ($inflated !== false) {
+                $decodedBody = $inflated;
+            }
+        }
+
+        $json = json_decode($decodedBody, true);
+        return is_array($json) ? $json : null;
+    }
+
     private function getLibraryApiCatalog(): array
     {
         return [
