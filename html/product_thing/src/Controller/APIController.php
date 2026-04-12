@@ -271,20 +271,41 @@ class APIController extends AppController
 
     public function apiExplorer()
     {
-        $apiOptions = $this->getLibraryApiOptions();
+        $apiCatalog = $this->getLibraryApiCatalog();
+        $apiOptions = [];
+        foreach ($apiCatalog as $item) {
+            $apiOptions[$item['id']] = $item['id'] . ' - ' . $item['name'];
+        }
+
         $selectedApi = 'XIT001';
-        $queryString = 'area=13&city=13101&year=2024';
+        $defaultQueries = [
+            'XIT001' => 'area=13&city=13101&year=2024',
+            'XIT002' => 'area=13&year=2024',
+            'XCT001' => 'area=13&city=13101&year=2024',
+            'XPT001' => 'area=13&city=13101&year=2024',
+            'XPT002' => 'year=2024',
+            'XGT001' => 'lat=35.6812&lon=139.7671&radius=1000',
+            'XST001' => 'lat=35.6812&lon=139.7671&radius=1000',
+        ];
+        $queryString = $defaultQueries[$selectedApi] ?? 'year=2024';
         $resultData = null;
         $rawResult = null;
         $requestUrl = null;
+        $curlExample = null;
         $errorMessage = null;
+        $apiKey = (string)env('API_KEY');
 
         if ($this->request->is('post')) {
             $selectedApi = (string)$this->request->getData('api_id');
             $queryString = trim((string)$this->request->getData('query_string'));
+            if ($queryString === '') {
+                $queryString = $defaultQueries[$selectedApi] ?? 'year=2024';
+            }
 
             if (!isset($apiOptions[$selectedApi])) {
                 $errorMessage = 'API IDが不正です。';
+            } elseif ($apiKey === '') {
+                $errorMessage = 'API_KEY が未設定です。config/.env に設定してください。';
             } else {
                 parse_str($queryString, $queryParams);
                 if (!is_array($queryParams)) {
@@ -297,7 +318,7 @@ class APIController extends AppController
                 $header = [
                     'Content-Type: application/x-www-form-urlencoded',
                     'Context-Length: ' . 20,
-                    'Ocp-Apim-Subscription-Key: ' . env('API_KEY'),
+                    'Ocp-Apim-Subscription-Key: ' . $apiKey,
                 ];
                 $content = [
                     'http' => [
@@ -311,6 +332,7 @@ class APIController extends AppController
 
                 $baseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/' . $selectedApi . '?';
                 $requestUrl = $baseUrl . http_build_query($queryParams);
+                $curlExample = 'curl -s -H "Ocp-Apim-Subscription-Key: ' . $apiKey . '" "' . $requestUrl . '"';
                 $response = file_get_contents($requestUrl, false, $context);
 
                 if ($response === false) {
@@ -336,29 +358,56 @@ class APIController extends AppController
         }
 
         $this->set(compact(
+            'apiCatalog',
             'apiOptions',
             'selectedApi',
             'queryString',
             'resultData',
             'rawResult',
             'requestUrl',
+            'curlExample',
             'errorMessage'
         ));
     }
 
-    private function getLibraryApiOptions(): array
+    private function getLibraryApiCatalog(): array
     {
         return [
-            'XIT001' => '不動産価格（取引価格・成約価格）情報取得API',
-            'XPT001' => '不動産価格情報のポイント (点) API',
-            'XPT002' => '地価公示・地価調査のポイント (点) API',
-            'XCT001' => '鑑定評価書情報API',
-            'XKT002' => '都市計画決定GISデータ（用途地域）API',
-            'XKT010' => '国土数値情報（医療機関）API',
-            'XKT016' => '国土数値情報（災害危険区域）API',
-            'XKT026' => '国土数値情報（洪水浸水想定区域）API',
-            'XGT001' => '指定緊急避難場所API',
-            'XST001' => '災害履歴API',
+            ['id' => 'XIT001', 'category' => '価格情報', 'name' => '不動産価格（取引価格・成約価格）情報取得API', 'source' => '不動産取引価格情報 / 成約価格情報'],
+            ['id' => 'XIT002', 'category' => '市区町村情報', 'name' => '都道府県内市区町村一覧取得API', 'source' => '全国地方公共団体コード準拠'],
+            ['id' => 'XCT001', 'category' => '価格情報', 'name' => '鑑定評価書情報API', 'source' => '地価公示（鑑定評価書）'],
+            ['id' => 'XPT001', 'category' => '価格情報', 'name' => '不動産価格情報のポイント (点) API', 'source' => '不動産取引価格情報 / 成約価格情報'],
+            ['id' => 'XPT002', 'category' => '価格情報', 'name' => '地価公示・地価調査のポイント (点) API', 'source' => '地価公示 / 地価調査'],
+            ['id' => 'XKT001', 'category' => '都市計画情報', 'name' => '都市計画区域/区域区分 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT002', 'category' => '都市計画情報', 'name' => '用途地域 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT003', 'category' => '都市計画情報', 'name' => '立地適正化計画 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT004', 'category' => '周辺施設情報', 'name' => '小学校区 API', 'source' => '国土数値情報（小学校区）'],
+            ['id' => 'XKT005', 'category' => '周辺施設情報', 'name' => '中学校区 API', 'source' => '国土数値情報（中学校区）'],
+            ['id' => 'XKT006', 'category' => '周辺施設情報', 'name' => '学校 API', 'source' => '国土数値情報（学校）'],
+            ['id' => 'XKT007', 'category' => '周辺施設情報', 'name' => '保育園・幼稚園等 API', 'source' => '国土数値情報（学校・福祉施設加工）'],
+            ['id' => 'XKT010', 'category' => '周辺施設情報', 'name' => '医療機関 API', 'source' => '国土数値情報（医療機関）'],
+            ['id' => 'XKT011', 'category' => '周辺施設情報', 'name' => '福祉施設 API', 'source' => '国土数値情報（福祉施設）'],
+            ['id' => 'XKT013', 'category' => '人口情報等', 'name' => '将来推計人口250mメッシュ API', 'source' => '国土数値情報（250mメッシュ別将来推計人口）'],
+            ['id' => 'XKT014', 'category' => '都市計画情報', 'name' => '防火・準防火地域 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT015', 'category' => '人口情報等', 'name' => '駅別乗降客数 API', 'source' => '国土数値情報（駅別乗降客数）'],
+            ['id' => 'XKT016', 'category' => '防災情報', 'name' => '災害危険区域 API', 'source' => '国土数値情報（災害危険区域）'],
+            ['id' => 'XKT017', 'category' => '周辺施設情報', 'name' => '図書館 API', 'source' => '国土数値情報（文化施設加工）'],
+            ['id' => 'XKT018', 'category' => '周辺施設情報', 'name' => '市区町村役場及び集会施設等 API', 'source' => '国土数値情報（市町村役場等及び公的集会施設）'],
+            ['id' => 'XKT019', 'category' => '周辺施設情報', 'name' => '自然公園地域 API', 'source' => '国土数値情報（自然公園地域）'],
+            ['id' => 'XKT020', 'category' => '地形情報', 'name' => '大規模盛土造成地マップ API', 'source' => '国土数値情報（大規模盛土造成地）'],
+            ['id' => 'XKT021', 'category' => '防災情報', 'name' => '地すべり防止地区 API', 'source' => '国土数値情報（地すべり防止区域）'],
+            ['id' => 'XKT022', 'category' => '防災情報', 'name' => '急傾斜地崩壊危険区域 API', 'source' => '国土数値情報（急傾斜地崩壊危険区域）'],
+            ['id' => 'XKT023', 'category' => '都市計画情報', 'name' => '地区計画 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT024', 'category' => '都市計画情報', 'name' => '高度利用地区 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT025', 'category' => '防災情報', 'name' => '液状化の発生傾向図 API', 'source' => '国土交通省都市局'],
+            ['id' => 'XKT026', 'category' => '防災情報', 'name' => '洪水浸水想定区域 API', 'source' => '国土数値情報（洪水浸水想定区域）'],
+            ['id' => 'XKT027', 'category' => '防災情報', 'name' => '高潮浸水想定区域 API', 'source' => '国土数値情報（高潮浸水想定区域）'],
+            ['id' => 'XKT028', 'category' => '防災情報', 'name' => '津波浸水想定 API', 'source' => '国土数値情報（津波浸水想定）'],
+            ['id' => 'XKT029', 'category' => '防災情報', 'name' => '土砂災害警戒区域 API', 'source' => '国土数値情報（土砂災害警戒区域）'],
+            ['id' => 'XKT030', 'category' => '都市計画情報', 'name' => '都市計画道路 API', 'source' => '都市計画決定GISデータ（令和6年度）'],
+            ['id' => 'XKT031', 'category' => '人口情報等', 'name' => '人口集中地区 API', 'source' => '国土数値情報（人口集中地区データ）'],
+            ['id' => 'XGT001', 'category' => '防災情報', 'name' => '指定緊急避難場所 API', 'source' => '国土地理院GISデータ'],
+            ['id' => 'XST001', 'category' => '防災情報', 'name' => '災害履歴 API', 'source' => '国土調査（土地履歴調査）'],
         ];
     }
 
