@@ -72,6 +72,10 @@
                     <th class="text-center bg-success">地区名</th>
                     <th class="text-center bg-success">取引価格 (円)</th>
                     <th class="text-center bg-success">面積 (m²)</th>
+                    <th class="text-center bg-success">建築年</th>
+                    <th class="text-center bg-success">間取り</th>
+                    <th class="text-center bg-success">建物構造</th>
+                    <th class="text-center bg-success">用途</th>
                     <th class="text-center bg-success">取引時期</th>
                 </tr>
                 </thead>
@@ -86,11 +90,15 @@
                             <td class="text-center"><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars($record['Area'] ?? 'N/A'); ?> m²</td>
+                            <td class="text-center"><?= htmlspecialchars($record['BuildingYear'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['FloorPlan'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Structure'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Purpose'] ?? 'N/A'); ?></td>
                             <td class="text-center"><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
                         </tr>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8">Invalid data format: <?= htmlspecialchars($record); ?></td>
+                            <td colspan="12">Invalid data format: <?= htmlspecialchars($record); ?></td>
                         </tr>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -306,6 +314,10 @@ if (!empty($data) && is_array($data)) {
                         '<strong>' + escapeHtml(record.Prefecture) + ' ' + escapeHtml(record.Municipality) + '</strong><br>' +
                         '地区: ' + escapeHtml(record.DistrictName || 'N/A') + '<br>' +
                         '価格: ' + escapeHtml(formattedPrice) + '<br>' +
+                        '建築年: ' + escapeHtml(record.BuildingYear || 'N/A') + '<br>' +
+                        '間取り: ' + escapeHtml(record.FloorPlan || 'N/A') + '<br>' +
+                        '建物構造: ' + escapeHtml(record.Structure || 'N/A') + '<br>' +
+                        '用途: ' + escapeHtml(record.Purpose || 'N/A') + '<br>' +
                         '時期: ' + escapeHtml(record.Period || 'N/A') +
                         '</div>'
                     ))
