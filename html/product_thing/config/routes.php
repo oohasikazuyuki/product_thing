@@ -58,14 +58,12 @@ return function (RouteBuilder $routes): void {
          * to use (in this case, templates/Pages/home.php)...
          */
 
-        $builder->connect('/', ['controller' => 'API', 'action' => 'index']);
+        $builder->connect('/', ['controller' => 'PriceSearch', 'action' => 'index']);
         $builder->connect('/api/mlit/transactions', ['controller' => 'MlitProxy', 'action' => 'transactions']);
         $builder->connect('/api/mlit/geojson', ['controller' => 'MlitProxy', 'action' => 'geojson']);
-        $builder->connect('/API', ['controller' => 'API', 'action' => 'r_EstateAPI']);
-        $builder->connect('/API/select_a_p_i', ['controller' => 'API', 'action' => 'selectAPI']);
         $builder->connect(
             '/api/displayPrice/**',
-            ['controller' => 'API', 'action' => 'displayPrice'],
+            ['controller' => 'PriceSearch', 'action' => 'displayPrice'],
             [
                 'pass' => ['','cityID', 'year', 'quarter'], // ここで指定したパラメータがアクションメソッドに渡される
                 'cityID' => '[0-9]+', // cityIDは数字のみ
@@ -74,14 +72,13 @@ return function (RouteBuilder $routes): void {
             ]
         );
 
-            $builder->connect('/API/displayPrice/:prefectureCode/:cityID/:year', ['controller' => 'API', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
+            $builder->connect('/API/displayPrice/:prefectureCode/:cityID/:year', ['controller' => 'PriceSearch', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
 
         /*
          * ...and connect the rest of 'Pages' controller's URLs.
          */
         $builder->connect('/pages/*', 'Pages::display');
-        $builder->connect('/API', 'API::r_EstateAPI');
-        $builder->connect('/API/display_price', 'API::displayPrice');
+        $builder->connect('/API/display_price', 'PriceSearch::displayPrice');
 
 
 
