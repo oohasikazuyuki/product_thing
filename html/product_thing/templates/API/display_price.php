@@ -38,6 +38,7 @@
                 <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
                 <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
                 <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+                <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
             </div>
         </div>
         <div class="card mb-3">
@@ -169,6 +170,7 @@ if (!empty($data) && is_array($data)) {
         const defaultZoom = 10;
         const googleMapsApiKey = <?= json_encode($googleMapsApiKey ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
+        const layerDataEndpoint = <?= json_encode($this->Url->build(['controller' => 'API', 'action' => 'layerData'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
         const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const layerControls = document.getElementById('layerControls');
@@ -176,25 +178,29 @@ if (!empty($data) && is_array($data)) {
         const modeName = {
             living: 'お買い物・生活',
             safety: '安心・防災',
-            invest: 'プロ・投資'
+            invest: 'プロ・投資',
+            nature: '自然環境'
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
+            {id: 'medical-facilities', label: '医療機関（XKT010）', available: true},
             {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
             {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
-            {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
+            {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
         ];
         const modeDefaults = {
-            living: ['price-points', 'facility-poi'],
+            living: ['price-points', 'medical-facilities', 'facility-poi'],
             safety: ['price-points', 'hazard-zones'],
-            invest: ['price-points', 'urban-plan', 'population-heat']
+            invest: ['price-points', 'urban-plan', 'population-heat'],
+            nature: ['price-points', 'nature-parks']
         };
         let currentMode = 'living';
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
-            'price-points': []
+            'price-points': [],
+            'nature-parks': []
         };
 
         const setMapStatus = function (message, variant) {
@@ -241,6 +247,9 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.delete(targetLayerId);
                     }
                     applyLayerVisibility();
+                    if (targetLayerId === 'nature-parks' && checkbox.checked) {
+                        loadNatureParksLayer();
+                    }
                 });
             });
         };
@@ -350,6 +359,20 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
+        const createNaturePopupHtml = function (record) {
+            const keys = Object.keys(record || {}).slice(0, 6);
+            if (keys.length === 0) {
+                return '<div><strong>自然公園地域</strong><br>属性情報なし</div>';
+            }
+
+            let body = '<div><strong>自然公園地域（XKT019）</strong><br>';
+            keys.forEach(function (key) {
+                body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
+            });
+            body += '</div>';
+            return body;
+        };
+
         const mapAdapter = (function () {
             if (useGoogleMaps) {
                 const googleMap = new google.maps.Map(document.getElementById('map'), {
@@ -363,6 +386,10 @@ if (!empty($data) && is_array($data)) {
                 return {
                     ready: function (callback) {
                         callback();
+                    },
+                    getCenter: function () {
+                        const center = googleMap.getCenter();
+                        return [center.lng(), center.lat()];
                     },
                     addPoint: function (record, coordinates, color, popupHtml) {
                         const marker = new google.maps.Marker({
@@ -388,6 +415,9 @@ if (!empty($data) && is_array($data)) {
                         return {
                             setVisible: function (isVisible) {
                                 marker.setMap(isVisible ? googleMap : null);
+                            },
+                            remove: function () {
+                                marker.setMap(null);
                             }
                         };
                     },
@@ -430,6 +460,10 @@ if (!empty($data) && is_array($data)) {
                 ready: function (callback) {
                     maplibreMap.on('load', callback);
                 },
+                getCenter: function () {
+                    const center = maplibreMap.getCenter();
+                    return [center.lng, center.lat];
+                },
                 addPoint: function (record, coordinates, color, popupHtml) {
                     const marker = new maplibregl.Marker({color: color})
                         .setLngLat(coordinates)
@@ -438,6 +472,9 @@ if (!empty($data) && is_array($data)) {
                     return {
                         setVisible: function (isVisible) {
                             marker.getElement().style.display = isVisible ? '' : 'none';
+                        },
+                        remove: function () {
+                            marker.remove();
                         }
                     };
                 },
@@ -453,6 +490,60 @@ if (!empty($data) && is_array($data)) {
                 }
             };
         })();
+
+        const clearLayerMarkers = function (layerId) {
+            if (!layerMarkerRegistry[layerId]) {
+                return;
+            }
+            layerMarkerRegistry[layerId].forEach(function (markerWrapper) {
+                markerWrapper.remove();
+            });
+            layerMarkerRegistry[layerId] = [];
+        };
+
+        const loadNatureParksLayer = async function () {
+            if (currentMode !== 'nature' || !activeLayers.has('nature-parks')) {
+                return;
+            }
+            if (layerMarkerRegistry['nature-parks'].length > 0) {
+                return;
+            }
+
+            const center = mapAdapter.getCenter();
+            const params = new URLSearchParams({
+                api_id: 'XKT019',
+                lat: String(center[1]),
+                lon: String(center[0]),
+                radius: '3000'
+            });
+            const response = await fetch(layerDataEndpoint + '?' + params.toString(), {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                return;
+            }
+            const payload = await response.json();
+            if (!payload.success || !Array.isArray(payload.data)) {
+                return;
+            }
+
+            let plotted = 0;
+            payload.data.forEach(function (row) {
+                const coordinates = extractCoordinates(row);
+                if (!coordinates) {
+                    return;
+                }
+                const marker = mapAdapter.addPoint(row, coordinates, '#15803d', createNaturePopupHtml(row));
+                layerMarkerRegistry['nature-parks'].push(marker);
+                plotted += 1;
+            });
+            if (plotted > 0) {
+                applyLayerVisibility();
+                setMapStatus('自然環境モードで自然公園地域レイヤーを ' + plotted + ' 件表示しました。', 'info');
+            }
+        };
 
         const renderMapPoints = async function () {
             if (!Array.isArray(records) || records.length === 0) {
@@ -505,6 +596,9 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
+            if (currentMode === 'nature') {
+                loadNatureParksLayer();
+            }
         };
 
         modeButtons.forEach(function (button) {
@@ -518,6 +612,9 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
+                if (currentMode === 'nature') {
+                    loadNatureParksLayer();
+                }
             });
         });
 
