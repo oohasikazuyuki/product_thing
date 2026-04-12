@@ -18,6 +18,7 @@
             'label' => ['text' => '都道府県', 'class' => 'form-label'],
             'type' => 'select',
             'options' => $prefectures,
+            'default' => $selectedPrefecture ?? '',
             'class' => 'form-control',
             'empty' => '選択してください',
             'required' => true,
@@ -44,6 +45,7 @@
             'label' => ['text' => '売買年度', 'class' => 'form-label'],
             'type' => 'select',
             'options' => $years,
+            'default' => $selectedYear ?? '',
             'class' => 'form-control',
             'empty' => '選択してください',
             'required' => true,
@@ -77,7 +79,11 @@
         const year = document.getElementById('year');
         const requestCities = function () {
             if (prefecture.value) {
-                form.submit();
+                const query = new URLSearchParams({
+                    prefecture: prefecture.value,
+                    year: year.value || ''
+                });
+                window.location.href = form.action + '?' + query.toString();
             }
         };
 

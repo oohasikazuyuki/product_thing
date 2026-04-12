@@ -55,6 +55,9 @@ class APIController extends AppController
 
     public function selectAPI($prefectureCode = null,$cityID = null,$year = null)
     {
+        $prefectureCode = (string)$this->request->getQuery('prefecture', $prefectureCode ?? '');
+        $year = (string)$this->request->getQuery('year', $year ?? '');
+
         //データベースから選択できるようにしたい
         if ($this->request->is('post')) {
             $prefectureCode = $this->request->getData('prefecture');
@@ -111,13 +114,20 @@ class APIController extends AppController
 
         $context = stream_context_create($content);
 
-        $response = file_get_contents(
-            $base_url.http_build_query($query),false,$context);
+        $response = false;
+        if (!empty($prefectureCode)) {
+            $response = file_get_contents(
+                $base_url . http_build_query($query), false, $context
+            );
+        }
 
-        if(substr($response,0,2) === "\x1f\x8b"){
-            $decode_response = json_decode(gzdecode($response),true);
-        }else{
-            $decode_response = json_decode($response,true);
+        $decode_response = [];
+        if (is_string($response) && $response !== '') {
+            if (substr($response,0,2) === "\x1f\x8b") {
+                $decode_response = json_decode(gzdecode($response),true);
+            } else {
+                $decode_response = json_decode($response,true);
+            }
         }
 
         $this->set('prefectures', $this->getPrefectures());
@@ -133,9 +143,9 @@ class APIController extends AppController
             error_log('APIからのデータ取得に失敗しました。');
         }
 
-        //年度をgetYearメソッドから取得
-        $year = $this->getYear();
-        $this->set('years', $year);
+        $this->set('years', $this->getYear());
+        $this->set('selectedPrefecture', $prefectureCode);
+        $this->set('selectedYear', $year);
 
     }
 
