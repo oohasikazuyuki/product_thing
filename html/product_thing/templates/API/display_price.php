@@ -38,6 +38,7 @@
                 <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
                 <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
                 <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+                <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
             </div>
         </div>
         <div class="card mb-3">
@@ -180,7 +181,8 @@ if (!empty($data) && is_array($data)) {
         const modeName = {
             living: 'お買い物・生活',
             safety: '安心・防災',
-            invest: 'プロ・投資'
+            invest: 'プロ・投資',
+            nature: '自然環境'
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
@@ -189,10 +191,10 @@ if (!empty($data) && is_array($data)) {
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
             {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
-            {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
+            {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
         ];
         const modeDefaults = {
-            living: ['price-points', 'facility-poi'],
+            living: ['price-points', 'medical-facilities', 'facility-poi'],
             safety: ['price-points', 'hazard-zones'],
             invest: ['price-points', 'official-land-price', 'urban-plan', 'population-heat']
         };
