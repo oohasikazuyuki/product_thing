@@ -181,7 +181,7 @@ if (!empty($data) && is_array($data)) {
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
-            {id: 'evacuation-sites', label: '避難場所（XGT001）', available: true},
+            {id: 'medical-facilities', label: '医療機関（XKT010）', available: true},
             {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
@@ -189,15 +189,15 @@ if (!empty($data) && is_array($data)) {
             {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
         ];
         const modeDefaults = {
-            living: ['price-points', 'facility-poi'],
-            safety: ['price-points', 'evacuation-sites', 'hazard-zones'],
+            living: ['price-points', 'medical-facilities', 'facility-poi'],
+            safety: ['price-points', 'hazard-zones'],
             invest: ['price-points', 'urban-plan', 'population-heat']
         };
         let currentMode = 'living';
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
             'price-points': [],
-            'evacuation-sites': []
+            'medical-facilities': []
         };
 
         const setMapStatus = function (message, variant) {
@@ -244,8 +244,8 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.delete(targetLayerId);
                     }
                     applyLayerVisibility();
-                    if (targetLayerId === 'evacuation-sites' && checkbox.checked) {
-                        loadEvacuationSitesLayer();
+                    if (targetLayerId === 'medical-facilities' && checkbox.checked) {
+                        loadMedicalFacilitiesLayer();
                     }
                 });
             });
@@ -356,13 +356,13 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
-        const createSafetyPopupHtml = function (record) {
+        const createLivingPopupHtml = function (record) {
             const keys = Object.keys(record || {}).slice(0, 6);
             if (keys.length === 0) {
-                return '<div><strong>避難場所</strong><br>属性情報なし</div>';
+                return '<div><strong>医療機関</strong><br>属性情報なし</div>';
             }
 
-            let body = '<div><strong>避難場所（XGT001）</strong><br>';
+            let body = '<div><strong>医療機関（XKT010）</strong><br>';
             keys.forEach(function (key) {
                 body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
             });
@@ -498,17 +498,17 @@ if (!empty($data) && is_array($data)) {
             layerMarkerRegistry[layerId] = [];
         };
 
-        const loadEvacuationSitesLayer = async function () {
-            if (currentMode !== 'safety' || !activeLayers.has('evacuation-sites')) {
+        const loadMedicalFacilitiesLayer = async function () {
+            if (currentMode !== 'living' || !activeLayers.has('medical-facilities')) {
                 return;
             }
-            if (layerMarkerRegistry['evacuation-sites'].length > 0) {
+            if (layerMarkerRegistry['medical-facilities'].length > 0) {
                 return;
             }
 
             const center = mapAdapter.getCenter();
             const params = new URLSearchParams({
-                api_id: 'XGT001',
+                api_id: 'XKT010',
                 lat: String(center[1]),
                 lon: String(center[0]),
                 radius: '1500'
@@ -532,13 +532,13 @@ if (!empty($data) && is_array($data)) {
                 if (!coordinates) {
                     return;
                 }
-                const marker = mapAdapter.addPoint(row, coordinates, '#2563eb', createSafetyPopupHtml(row));
-                layerMarkerRegistry['evacuation-sites'].push(marker);
+                const marker = mapAdapter.addPoint(row, coordinates, '#0ea5e9', createLivingPopupHtml(row));
+                layerMarkerRegistry['medical-facilities'].push(marker);
                 plotted += 1;
             });
             if (plotted > 0) {
                 applyLayerVisibility();
-                setMapStatus('安心・防災モードで避難場所レイヤーを ' + plotted + ' 件表示しました。', 'info');
+                setMapStatus('お買い物・生活モードで医療機関レイヤーを ' + plotted + ' 件表示しました。', 'info');
             }
         };
 
@@ -593,8 +593,8 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            if (currentMode === 'safety') {
-                loadEvacuationSitesLayer();
+            if (currentMode === 'living') {
+                loadMedicalFacilitiesLayer();
             }
         };
 
@@ -609,8 +609,8 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
-                if (currentMode === 'safety') {
-                    loadEvacuationSitesLayer();
+                if (currentMode === 'living') {
+                    loadMedicalFacilitiesLayer();
                 }
             });
         });
