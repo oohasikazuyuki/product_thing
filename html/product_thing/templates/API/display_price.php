@@ -38,6 +38,7 @@
                 <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
                 <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
                 <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+                <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
             </div>
         </div>
         <div class="card mb-3">
@@ -177,7 +178,8 @@ if (!empty($data) && is_array($data)) {
         const modeName = {
             living: 'お買い物・生活',
             safety: '安心・防災',
-            invest: 'プロ・投資'
+            invest: 'プロ・投資',
+            nature: '自然環境'
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
@@ -186,18 +188,19 @@ if (!empty($data) && is_array($data)) {
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
             {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
-            {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
+            {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
         ];
         const modeDefaults = {
             living: ['price-points', 'medical-facilities', 'facility-poi'],
             safety: ['price-points', 'hazard-zones'],
-            invest: ['price-points', 'urban-plan', 'population-heat']
+            invest: ['price-points', 'urban-plan', 'population-heat'],
+            nature: ['price-points', 'nature-parks']
         };
         let currentMode = 'living';
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
             'price-points': [],
-            'medical-facilities': []
+            'nature-parks': []
         };
 
         const setMapStatus = function (message, variant) {
@@ -244,8 +247,8 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.delete(targetLayerId);
                     }
                     applyLayerVisibility();
-                    if (targetLayerId === 'medical-facilities' && checkbox.checked) {
-                        loadMedicalFacilitiesLayer();
+                    if (targetLayerId === 'nature-parks' && checkbox.checked) {
+                        loadNatureParksLayer();
                     }
                 });
             });
@@ -356,13 +359,13 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
-        const createLivingPopupHtml = function (record) {
+        const createNaturePopupHtml = function (record) {
             const keys = Object.keys(record || {}).slice(0, 6);
             if (keys.length === 0) {
-                return '<div><strong>医療機関</strong><br>属性情報なし</div>';
+                return '<div><strong>自然公園地域</strong><br>属性情報なし</div>';
             }
 
-            let body = '<div><strong>医療機関（XKT010）</strong><br>';
+            let body = '<div><strong>自然公園地域（XKT019）</strong><br>';
             keys.forEach(function (key) {
                 body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
             });
@@ -498,20 +501,20 @@ if (!empty($data) && is_array($data)) {
             layerMarkerRegistry[layerId] = [];
         };
 
-        const loadMedicalFacilitiesLayer = async function () {
-            if (currentMode !== 'living' || !activeLayers.has('medical-facilities')) {
+        const loadNatureParksLayer = async function () {
+            if (currentMode !== 'nature' || !activeLayers.has('nature-parks')) {
                 return;
             }
-            if (layerMarkerRegistry['medical-facilities'].length > 0) {
+            if (layerMarkerRegistry['nature-parks'].length > 0) {
                 return;
             }
 
             const center = mapAdapter.getCenter();
             const params = new URLSearchParams({
-                api_id: 'XKT010',
+                api_id: 'XKT019',
                 lat: String(center[1]),
                 lon: String(center[0]),
-                radius: '1500'
+                radius: '3000'
             });
             const response = await fetch(layerDataEndpoint + '?' + params.toString(), {
                 headers: {
@@ -532,13 +535,13 @@ if (!empty($data) && is_array($data)) {
                 if (!coordinates) {
                     return;
                 }
-                const marker = mapAdapter.addPoint(row, coordinates, '#0ea5e9', createLivingPopupHtml(row));
-                layerMarkerRegistry['medical-facilities'].push(marker);
+                const marker = mapAdapter.addPoint(row, coordinates, '#15803d', createNaturePopupHtml(row));
+                layerMarkerRegistry['nature-parks'].push(marker);
                 plotted += 1;
             });
             if (plotted > 0) {
                 applyLayerVisibility();
-                setMapStatus('お買い物・生活モードで医療機関レイヤーを ' + plotted + ' 件表示しました。', 'info');
+                setMapStatus('自然環境モードで自然公園地域レイヤーを ' + plotted + ' 件表示しました。', 'info');
             }
         };
 
@@ -593,8 +596,8 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            if (currentMode === 'living') {
-                loadMedicalFacilitiesLayer();
+            if (currentMode === 'nature') {
+                loadNatureParksLayer();
             }
         };
 
@@ -609,8 +612,8 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
-                if (currentMode === 'living') {
-                    loadMedicalFacilitiesLayer();
+                if (currentMode === 'nature') {
+                    loadNatureParksLayer();
                 }
             });
         });
