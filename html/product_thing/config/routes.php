@@ -59,6 +59,24 @@ return function (RouteBuilder $routes): void {
          */
 
         $builder->connect('/', ['controller' => 'PriceSearch', 'action' => 'index']);
+
+        // PriceSearch URLs
+        $builder->connect('/price-search/select', ['controller' => 'PriceSearch', 'action' => 'selectAPI']);
+        $builder->connect('/price-search/display', ['controller' => 'PriceSearch', 'action' => 'displayPrice']);
+        // Legacy URLs
+        $builder->connect('/API/select_a_p_i', ['controller' => 'PriceSearch', 'action' => 'selectAPI']);
+        $builder->connect('/API/display_price', ['controller' => 'PriceSearch', 'action' => 'displayPrice']);
+        $builder->connect('/API/displayPrice/:prefectureCode/:cityID/:year', ['controller' => 'PriceSearch', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
+
+        // Explorer URLs
+        $builder->connect('/api-explorer', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer']);
+        $builder->connect('/API/api-explorer', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer']);
+
+        // LayerData URLs
+        $builder->connect('/layer-data', ['controller' => 'LayerData', 'action' => 'layerData']);
+        $builder->connect('/api/layer-data', ['controller' => 'LayerData', 'action' => 'layerData']);
+
+        // MLIT proxy URLs
         $builder->connect('/api/mlit/transactions', ['controller' => 'MlitProxy', 'action' => 'transactions']);
         $builder->connect('/api/mlit/geojson', ['controller' => 'MlitProxy', 'action' => 'geojson']);
         $builder->connect(
@@ -71,14 +89,10 @@ return function (RouteBuilder $routes): void {
                 'quarter' => '[1-4]' // 四半期は1から4の数字
             ]
         );
-
-            $builder->connect('/API/displayPrice/:prefectureCode/:cityID/:year', ['controller' => 'PriceSearch', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
-
         /*
          * ...and connect the rest of 'Pages' controller's URLs.
          */
         $builder->connect('/pages/*', 'Pages::display');
-        $builder->connect('/API/display_price', 'PriceSearch::displayPrice');
 
 
 

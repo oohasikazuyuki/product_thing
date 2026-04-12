@@ -5,6 +5,12 @@ namespace App\Controller;
 
 class PriceSearchController extends APIController
 {
+    public function initialize(): void
+    {
+        parent::initialize();
+        $this->viewBuilder()->setTemplatePath('API');
+    }
+
     public function index()
     {
         return $this->selectAPI();

@@ -12,7 +12,7 @@
     <p class="text-muted">デベロッパー向けに、全API IDを選んで実行URL・cURL・JSONレスポンスを確認できます。</p>
 
     <div class="mb-3">
-        <?= $this->Html->link('価格情報画面に戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary']) ?>
+        <?= $this->Html->link('価格情報画面に戻る', '/price-search/select', ['class' => 'btn btn-outline-secondary']) ?>
     </div>
 
     <?php if (!empty($errorMessage)): ?>

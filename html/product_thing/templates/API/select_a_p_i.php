@@ -10,9 +10,9 @@
 <div class="container mt-5">
     <h1 class="mb-4 text-center">条件選択画面</h1>
     <div class="mb-3 text-right">
-        <?= $this->Html->link('API探索（別機能）', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer'], ['class' => 'btn btn-outline-info']) ?>
+        <?= $this->Html->link('API探索（別機能）', '/api-explorer', ['class' => 'btn btn-outline-info']) ?>
     </div>
-    <?= $this->Form->create(null, ['url' => ['controller' => 'PriceSearch', 'action' => 'selectAPI'], 'class' => 'needs-validation', 'novalidate' => true]) ?>
+    <?= $this->Form->create(null, ['url' => '/price-search/select', 'class' => 'needs-validation', 'novalidate' => true]) ?>
     <div class="form-group">
         <?= $this->Form->control('prefecture', [
             'label' => ['text' => '都道府県', 'class' => 'form-label'],
