@@ -183,6 +183,7 @@ if (!empty($data) && is_array($data)) {
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
+            {id: 'medical-facilities', label: '医療機関（XKT010）', available: true},
             {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
@@ -190,7 +191,7 @@ if (!empty($data) && is_array($data)) {
             {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
         ];
         const modeDefaults = {
-            living: ['price-points', 'facility-poi'],
+            living: ['price-points', 'medical-facilities', 'facility-poi'],
             safety: ['price-points', 'hazard-zones'],
             invest: ['price-points', 'urban-plan', 'population-heat'],
             nature: ['price-points', 'nature-parks']
