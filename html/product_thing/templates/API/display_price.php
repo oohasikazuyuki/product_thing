@@ -19,6 +19,9 @@
             height: 420px;
             border-radius: 8px;
         }
+        .mode-btn.is-active {
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -29,6 +32,20 @@
 
     <div class="mb-4">
         <h2 class="h5 mb-3">地図表示</h2>
+        <div class="d-flex flex-wrap align-items-center mb-3">
+            <span class="mr-3">分析モード:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="mode-switch">
+                <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
+                <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
+                <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body p-3">
+                <h3 class="h6 mb-2">レイヤー表示</h3>
+                <div id="layerControls" class="mb-0"></div>
+            </div>
+        </div>
         <div id="map" aria-label="不動産データの地図"></div>
         <div id="mapStatus" class="alert alert-secondary mt-3 mb-0">
             地図を準備中です。
@@ -154,11 +171,78 @@ if (!empty($data) && is_array($data)) {
         const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
         const mapStatus = document.getElementById('mapStatus');
         const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const layerControls = document.getElementById('layerControls');
+        const modeButtons = document.querySelectorAll('.mode-btn');
+        const modeName = {
+            living: 'お買い物・生活',
+            safety: '安心・防災',
+            invest: 'プロ・投資'
+        };
+        const layerCatalog = [
+            {id: 'price-points', label: '取引価格ポイント', available: true},
+            {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
+            {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
+            {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
+            {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
+            {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
+        ];
+        const modeDefaults = {
+            living: ['price-points', 'facility-poi'],
+            safety: ['price-points', 'hazard-zones'],
+            invest: ['price-points', 'urban-plan', 'population-heat']
+        };
+        let currentMode = 'living';
+        const activeLayers = new Set(modeDefaults[currentMode]);
+        const layerMarkerRegistry = {
+            'price-points': []
+        };
 
         const setMapStatus = function (message, variant) {
             const color = variant || 'secondary';
             mapStatus.className = 'alert alert-' + color + ' mt-3 mb-0';
             mapStatus.textContent = message;
+        };
+
+        const syncModeButtons = function () {
+            modeButtons.forEach(function (button) {
+                button.classList.toggle('is-active', button.dataset.mode === currentMode);
+            });
+        };
+
+        const applyLayerVisibility = function () {
+            Object.keys(layerMarkerRegistry).forEach(function (layerId) {
+                const visible = activeLayers.has(layerId);
+                layerMarkerRegistry[layerId].forEach(function (markerWrapper) {
+                    markerWrapper.setVisible(visible);
+                });
+            });
+        };
+
+        const renderLayerControls = function () {
+            let html = '';
+            layerCatalog.forEach(function (layer) {
+                const checked = activeLayers.has(layer.id) ? 'checked' : '';
+                const disabled = layer.available ? '' : 'disabled';
+                const muted = layer.available ? '' : ' text-muted';
+                html += '<div class="form-check mb-1' + muted + '">';
+                html += '<input class="form-check-input layer-toggle" type="checkbox" id="layer-' + layer.id + '" data-layer-id="' + layer.id + '" ' + checked + ' ' + disabled + '>';
+                html += '<label class="form-check-label" for="layer-' + layer.id + '">' + layer.label + '</label>';
+                html += '</div>';
+            });
+            layerControls.innerHTML = html;
+
+            const checkboxes = layerControls.querySelectorAll('.layer-toggle');
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    const targetLayerId = checkbox.dataset.layerId;
+                    if (checkbox.checked) {
+                        activeLayers.add(targetLayerId);
+                    } else {
+                        activeLayers.delete(targetLayerId);
+                    }
+                    applyLayerVisibility();
+                });
+            });
         };
 
         const sleep = function (ms) {
@@ -301,6 +385,11 @@ if (!empty($data) && is_array($data)) {
                                 shouldFocus: false
                             });
                         });
+                        return {
+                            setVisible: function (isVisible) {
+                                marker.setMap(isVisible ? googleMap : null);
+                            }
+                        };
                     },
                     fitToBounds: function (plottedCoordinates) {
                         const bounds = new google.maps.LatLngBounds();
@@ -342,10 +431,15 @@ if (!empty($data) && is_array($data)) {
                     maplibreMap.on('load', callback);
                 },
                 addPoint: function (record, coordinates, color, popupHtml) {
-                    new maplibregl.Marker({color: color})
+                    const marker = new maplibregl.Marker({color: color})
                         .setLngLat(coordinates)
                         .setPopup(new maplibregl.Popup({offset: 25}).setHTML(popupHtml))
                         .addTo(maplibreMap);
+                    return {
+                        setVisible: function (isVisible) {
+                            marker.getElement().style.display = isVisible ? '' : 'none';
+                        }
+                    };
                 },
                 fitToBounds: function (plottedCoordinates) {
                     const bounds = new maplibregl.LngLatBounds();
@@ -366,11 +460,7 @@ if (!empty($data) && is_array($data)) {
                 return;
             }
 
-            if (useGoogleMaps) {
-                setMapStatus('Google Mapsで表示中です。Pegman を使って Street View を表示できます。', 'info');
-            } else {
-                setMapStatus('MapLibreで表示中です。Google Maps APIキーを設定すると Pegman を利用できます。', 'secondary');
-            }
+            setMapStatus(modeName[currentMode] + 'モードでレイヤーを準備中です。', 'secondary');
 
             const geocodeCache = new Map();
             const geocodeLimit = 20;
@@ -400,7 +490,8 @@ if (!empty($data) && is_array($data)) {
                 const price = toPriceNumber(record.TradePrice);
                 const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
                 const popupHtml = createPopupHtml(record, formattedPrice);
-                mapAdapter.addPoint(record, coordinates, priceToColor(price), popupHtml);
+                const markerWrapper = mapAdapter.addPoint(record, coordinates, priceToColor(price), popupHtml);
+                layerMarkerRegistry['price-points'].push(markerWrapper);
                 plottedCount += 1;
                 plottedCoordinates.push(coordinates);
             }
@@ -411,12 +502,27 @@ if (!empty($data) && is_array($data)) {
             }
 
             mapAdapter.fitToBounds(plottedCoordinates);
-            if (useGoogleMaps) {
-                setMapStatus('Google Mapsに ' + plottedCount + ' 件を表示しました。PegmanでStreet View表示が可能です。', 'success');
-            } else {
-                setMapStatus('MapLibreに ' + plottedCount + ' 件を表示しました。', 'success');
-            }
+            applyLayerVisibility();
+            const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
+            setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
         };
+
+        modeButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                currentMode = button.dataset.mode;
+                activeLayers.clear();
+                (modeDefaults[currentMode] || []).forEach(function (layerId) {
+                    activeLayers.add(layerId);
+                });
+                syncModeButtons();
+                renderLayerControls();
+                applyLayerVisibility();
+                setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
+            });
+        });
+
+        syncModeButtons();
+        renderLayerControls();
 
         mapAdapter.ready(function () {
             renderMapPoints().catch(function () {
