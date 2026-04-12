@@ -89,12 +89,11 @@ class APIController extends AppController
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
         $baseurl2 = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
+        $cityListYear = !empty($year) ? (string)$year : '2024';
         $query = [
             'area' => $prefectureCode,
+            'year' => $cityListYear,
         ];
-        if (!empty($year)) {
-            $query['year'] = $year;
-        }
 
         $header = array(
             'Content-Type: application/x-www-form-urlencoded',

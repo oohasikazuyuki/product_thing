@@ -76,7 +76,7 @@
         const prefecture = document.getElementById('prefecture');
         const year = document.getElementById('year');
         const requestCities = function () {
-            if (prefecture.value && year.value) {
+            if (prefecture.value) {
                 form.submit();
             }
         };
