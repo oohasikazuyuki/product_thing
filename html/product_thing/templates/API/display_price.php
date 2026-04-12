@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>不動産取引価格情報</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
     <style>
         .table th, .table td {
             vertical-align: middle;
@@ -13,6 +14,14 @@
             background-color: #343a40;
             color: #fff;
         }
+        #map {
+            width: 100%;
+            height: 420px;
+            border-radius: 8px;
+        }
+        .mode-btn.is-active {
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -20,6 +29,28 @@
     <h1 class="mb-4 text-center">
         不動産取引価格情報
     </h1>
+
+    <div class="mb-4">
+        <h2 class="h5 mb-3">地図表示</h2>
+        <div class="d-flex flex-wrap align-items-center mb-3">
+            <span class="mr-3">分析モード:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="mode-switch">
+                <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
+                <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
+                <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body p-3">
+                <h3 class="h6 mb-2">レイヤー表示</h3>
+                <div id="layerControls" class="mb-0"></div>
+            </div>
+        </div>
+        <div id="map" aria-label="不動産データの地図"></div>
+        <div id="mapStatus" class="alert alert-secondary mt-3 mb-0">
+            地図を準備中です。
+        </div>
+    </div>
 
     <div class="row mb-4">
         <div class="col-md-6 offset-md-3">
@@ -58,6 +89,10 @@
                     <th class="text-center bg-success">地区名</th>
                     <th class="text-center bg-success">取引価格 (円)</th>
                     <th class="text-center bg-success">面積 (m²)</th>
+                    <th class="text-center bg-success">建築年</th>
+                    <th class="text-center bg-success">間取り</th>
+                    <th class="text-center bg-success">建物構造</th>
+                    <th class="text-center bg-success">用途</th>
                     <th class="text-center bg-success">取引時期</th>
                 </tr>
                 </thead>
@@ -72,11 +107,15 @@
                             <td class="text-center"><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
                             <td class="text-right"><?= htmlspecialchars($record['Area'] ?? 'N/A'); ?> m²</td>
+                            <td class="text-center"><?= htmlspecialchars($record['BuildingYear'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['FloorPlan'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Structure'] ?? 'N/A'); ?></td>
+                            <td class="text-center"><?= htmlspecialchars($record['Purpose'] ?? 'N/A'); ?></td>
                             <td class="text-center"><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
                         </tr>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8">Invalid data format: <?= htmlspecialchars($record); ?></td>
+                            <td colspan="12">Invalid data format: <?= htmlspecialchars($record); ?></td>
                         </tr>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -109,8 +148,388 @@
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<?php if (!empty($googleMapsApiKey)): ?>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= urlencode($googleMapsApiKey) ?>&libraries=streetView"></script>
+<?php else: ?>
+<script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+<?php endif; ?>
+<?php
+$mapRecords = [];
+if (!empty($data) && is_array($data)) {
+    foreach ($data as $record) {
+        if (is_array($record)) {
+            $mapRecords[] = $record;
+        }
+    }
+}
+?>
 <script>
     document.addEventListener('DOMContentLoaded', (event) => {
+        const defaultCenter = [139.7671, 35.6812];
+        const defaultZoom = 10;
+        const googleMapsApiKey = <?= json_encode($googleMapsApiKey ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
+        const mapStatus = document.getElementById('mapStatus');
+        const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const layerControls = document.getElementById('layerControls');
+        const modeButtons = document.querySelectorAll('.mode-btn');
+        const modeName = {
+            living: 'お買い物・生活',
+            safety: '安心・防災',
+            invest: 'プロ・投資'
+        };
+        const layerCatalog = [
+            {id: 'price-points', label: '取引価格ポイント', available: true},
+            {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
+            {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
+            {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
+            {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
+            {id: 'nature-parks', label: '自然環境レイヤー（準備中）', available: false}
+        ];
+        const modeDefaults = {
+            living: ['price-points', 'facility-poi'],
+            safety: ['price-points', 'hazard-zones'],
+            invest: ['price-points', 'urban-plan', 'population-heat']
+        };
+        let currentMode = 'living';
+        const activeLayers = new Set(modeDefaults[currentMode]);
+        const layerMarkerRegistry = {
+            'price-points': []
+        };
+
+        const setMapStatus = function (message, variant) {
+            const color = variant || 'secondary';
+            mapStatus.className = 'alert alert-' + color + ' mt-3 mb-0';
+            mapStatus.textContent = message;
+        };
+
+        const syncModeButtons = function () {
+            modeButtons.forEach(function (button) {
+                button.classList.toggle('is-active', button.dataset.mode === currentMode);
+            });
+        };
+
+        const applyLayerVisibility = function () {
+            Object.keys(layerMarkerRegistry).forEach(function (layerId) {
+                const visible = activeLayers.has(layerId);
+                layerMarkerRegistry[layerId].forEach(function (markerWrapper) {
+                    markerWrapper.setVisible(visible);
+                });
+            });
+        };
+
+        const renderLayerControls = function () {
+            let html = '';
+            layerCatalog.forEach(function (layer) {
+                const checked = activeLayers.has(layer.id) ? 'checked' : '';
+                const disabled = layer.available ? '' : 'disabled';
+                const muted = layer.available ? '' : ' text-muted';
+                html += '<div class="form-check mb-1' + muted + '">';
+                html += '<input class="form-check-input layer-toggle" type="checkbox" id="layer-' + layer.id + '" data-layer-id="' + layer.id + '" ' + checked + ' ' + disabled + '>';
+                html += '<label class="form-check-label" for="layer-' + layer.id + '">' + layer.label + '</label>';
+                html += '</div>';
+            });
+            layerControls.innerHTML = html;
+
+            const checkboxes = layerControls.querySelectorAll('.layer-toggle');
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    const targetLayerId = checkbox.dataset.layerId;
+                    if (checkbox.checked) {
+                        activeLayers.add(targetLayerId);
+                    } else {
+                        activeLayers.delete(targetLayerId);
+                    }
+                    applyLayerVisibility();
+                });
+            });
+        };
+
+        const sleep = function (ms) {
+            return new Promise(function (resolve) {
+                setTimeout(resolve, ms);
+            });
+        };
+
+        const extractCoordinates = function (record) {
+            const pairs = [
+                ['Longitude', 'Latitude'],
+                ['longitude', 'latitude'],
+                ['lng', 'lat'],
+                ['Lon', 'Lat'],
+                ['LON', 'LAT']
+            ];
+            for (const pair of pairs) {
+                const lng = Number(record[pair[0]]);
+                const lat = Number(record[pair[1]]);
+                if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                    return [lng, lat];
+                }
+            }
+
+            return null;
+        };
+
+        const buildAddress = function (record) {
+            const parts = [
+                record.Prefecture,
+                record.Municipality,
+                record.DistrictName
+            ].filter(function (value) {
+                return value && value !== 'N/A';
+            });
+
+            return parts.length > 0 ? parts.join('') : null;
+        };
+
+        const geocodeAddress = async function (address) {
+            const endpoint = 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(address);
+            const response = await fetch(endpoint);
+            if (!response.ok) {
+                return null;
+            }
+            const geoJson = await response.json();
+            if (!Array.isArray(geoJson) || geoJson.length === 0) {
+                return null;
+            }
+            const coordinates = geoJson[0] && geoJson[0].geometry ? geoJson[0].geometry.coordinates : null;
+            if (!Array.isArray(coordinates) || coordinates.length !== 2) {
+                return null;
+            }
+
+            return coordinates;
+        };
+
+        const toPriceNumber = function (value) {
+            if (typeof value === 'number') {
+                return value;
+            }
+            if (typeof value === 'string') {
+                return Number(value.replace(/[^\d.-]/g, ''));
+            }
+
+            return NaN;
+        };
+
+        const priceToColor = function (price) {
+            if (!Number.isFinite(price)) {
+                return '#2563eb';
+            }
+            if (price >= 100000000) {
+                return '#b91c1c';
+            }
+            if (price >= 50000000) {
+                return '#ea580c';
+            }
+            if (price >= 30000000) {
+                return '#f59e0b';
+            }
+
+            return '#16a34a';
+        };
+
+        const escapeHtml = function (value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        };
+
+        const createPopupHtml = function (record, formattedPrice) {
+            return '<div>' +
+                '<strong>' + escapeHtml(record.Prefecture) + ' ' + escapeHtml(record.Municipality) + '</strong><br>' +
+                '地区: ' + escapeHtml(record.DistrictName || 'N/A') + '<br>' +
+                '価格: ' + escapeHtml(formattedPrice) + '<br>' +
+                '建築年: ' + escapeHtml(record.BuildingYear || 'N/A') + '<br>' +
+                '間取り: ' + escapeHtml(record.FloorPlan || 'N/A') + '<br>' +
+                '建物構造: ' + escapeHtml(record.Structure || 'N/A') + '<br>' +
+                '用途: ' + escapeHtml(record.Purpose || 'N/A') + '<br>' +
+                '時期: ' + escapeHtml(record.Period || 'N/A') +
+                '</div>';
+        };
+
+        const mapAdapter = (function () {
+            if (useGoogleMaps) {
+                const googleMap = new google.maps.Map(document.getElementById('map'), {
+                    center: {lat: defaultCenter[1], lng: defaultCenter[0]},
+                    zoom: defaultZoom,
+                    streetViewControl: true,
+                    mapTypeControl: true,
+                    fullscreenControl: true
+                });
+
+                return {
+                    ready: function (callback) {
+                        callback();
+                    },
+                    addPoint: function (record, coordinates, color, popupHtml) {
+                        const marker = new google.maps.Marker({
+                            map: googleMap,
+                            position: {lat: coordinates[1], lng: coordinates[0]},
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 7,
+                                fillColor: color,
+                                fillOpacity: 0.9,
+                                strokeColor: '#1f2937',
+                                strokeWeight: 1
+                            }
+                        });
+                        const infoWindow = new google.maps.InfoWindow({content: popupHtml});
+                        marker.addListener('click', function () {
+                            infoWindow.open({
+                                anchor: marker,
+                                map: googleMap,
+                                shouldFocus: false
+                            });
+                        });
+                        return {
+                            setVisible: function (isVisible) {
+                                marker.setMap(isVisible ? googleMap : null);
+                            }
+                        };
+                    },
+                    fitToBounds: function (plottedCoordinates) {
+                        const bounds = new google.maps.LatLngBounds();
+                        plottedCoordinates.forEach(function (coordinate) {
+                            bounds.extend({lat: coordinate[1], lng: coordinate[0]});
+                        });
+                        googleMap.fitBounds(bounds);
+                    }
+                };
+            }
+
+            const maplibreMap = new maplibregl.Map({
+                container: 'map',
+                style: {
+                    version: 8,
+                    sources: {
+                        osm: {
+                            type: 'raster',
+                            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                            tileSize: 256,
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }
+                    },
+                    layers: [
+                        {
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm'
+                        }
+                    ]
+                },
+                center: defaultCenter,
+                zoom: defaultZoom
+            });
+            maplibreMap.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+            return {
+                ready: function (callback) {
+                    maplibreMap.on('load', callback);
+                },
+                addPoint: function (record, coordinates, color, popupHtml) {
+                    const marker = new maplibregl.Marker({color: color})
+                        .setLngLat(coordinates)
+                        .setPopup(new maplibregl.Popup({offset: 25}).setHTML(popupHtml))
+                        .addTo(maplibreMap);
+                    return {
+                        setVisible: function (isVisible) {
+                            marker.getElement().style.display = isVisible ? '' : 'none';
+                        }
+                    };
+                },
+                fitToBounds: function (plottedCoordinates) {
+                    const bounds = new maplibregl.LngLatBounds();
+                    plottedCoordinates.forEach(function (coordinate) {
+                        bounds.extend(coordinate);
+                    });
+                    maplibreMap.fitBounds(bounds, {
+                        padding: 40,
+                        maxZoom: 13
+                    });
+                }
+            };
+        })();
+
+        const renderMapPoints = async function () {
+            if (!Array.isArray(records) || records.length === 0) {
+                setMapStatus('表示対象データがありません。', 'warning');
+                return;
+            }
+
+            setMapStatus(modeName[currentMode] + 'モードでレイヤーを準備中です。', 'secondary');
+
+            const geocodeCache = new Map();
+            const geocodeLimit = 20;
+            let geocodeCount = 0;
+            let plottedCount = 0;
+            const plottedCoordinates = [];
+
+            for (const record of records) {
+                let coordinates = extractCoordinates(record);
+                if (!coordinates && geocodeCount < geocodeLimit) {
+                    const address = buildAddress(record);
+                    if (address) {
+                        if (geocodeCache.has(address)) {
+                            coordinates = geocodeCache.get(address);
+                        } else {
+                            coordinates = await geocodeAddress(address);
+                            geocodeCache.set(address, coordinates);
+                            geocodeCount += 1;
+                            await sleep(200);
+                        }
+                    }
+                }
+                if (!coordinates) {
+                    continue;
+                }
+
+                const price = toPriceNumber(record.TradePrice);
+                const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
+                const popupHtml = createPopupHtml(record, formattedPrice);
+                const markerWrapper = mapAdapter.addPoint(record, coordinates, priceToColor(price), popupHtml);
+                layerMarkerRegistry['price-points'].push(markerWrapper);
+                plottedCount += 1;
+                plottedCoordinates.push(coordinates);
+            }
+
+            if (plottedCount === 0) {
+                setMapStatus('位置情報を取得できるデータがなく、地図上に表示できませんでした。', 'warning');
+                return;
+            }
+
+            mapAdapter.fitToBounds(plottedCoordinates);
+            applyLayerVisibility();
+            const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
+            setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
+        };
+
+        modeButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                currentMode = button.dataset.mode;
+                activeLayers.clear();
+                (modeDefaults[currentMode] || []).forEach(function (layerId) {
+                    activeLayers.add(layerId);
+                });
+                syncModeButtons();
+                renderLayerControls();
+                applyLayerVisibility();
+                setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
+            });
+        });
+
+        syncModeButtons();
+        renderLayerControls();
+
+        mapAdapter.ready(function () {
+            renderMapPoints().catch(function () {
+                setMapStatus('地図データの表示中にエラーが発生しました。', 'danger');
+            });
+        });
+
         const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('keyup', function () {
             const filter = searchInput.value.toLowerCase();
