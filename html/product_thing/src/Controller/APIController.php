@@ -89,9 +89,8 @@ class APIController extends AppController
 
         $base_url = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT002?';
         $baseurl2 = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XIT001?';
-        $query  = [
+        $query = [
             'area' => $prefectureCode,
-            'year' => $year,
         ];
 
         $header = array(
