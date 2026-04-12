@@ -6,7 +6,6 @@ namespace App\Controller;
 use Cake\Http\Client;
 use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Exception\InternalErrorException;
-use RuntimeException;
 
 class MlitProxyController extends AppController
 {
@@ -43,6 +42,16 @@ class MlitProxyController extends AppController
 
         $transactions = $client->get(self::TRANSACTIONS_PATH, $query, ['headers' => $headers]);
         $points = $client->get(self::TRANSACTION_POINTS_PATH, $query, ['headers' => $headers]);
+        if ($transactions->getStatusCode() >= 400 || $points->getStatusCode() >= 400) {
+            return $this->jsonResponse(
+                json_encode([
+                    'type' => 'FeatureCollection',
+                    'features' => [],
+                    'error' => 'Failed to fetch MLIT source data.',
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                502
+            );
+        }
 
         $transactionData = $this->extractDataRows($transactions->getStringBody());
         $pointData = $this->extractDataRows($points->getStringBody());
@@ -128,12 +137,29 @@ class MlitProxyController extends AppController
      */
     private function extractDataRows(string $responseBody): array
     {
-        $decoded = json_decode($responseBody, true);
+        $decoded = $this->decodeJsonBody($responseBody);
         if (!is_array($decoded) || !isset($decoded['data']) || !is_array($decoded['data'])) {
-            throw new RuntimeException('Invalid MLIT API response format.');
+            return [];
         }
 
         return array_values(array_filter($decoded['data'], 'is_array'));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeJsonBody(string $body): ?array
+    {
+        $decodedBody = $body;
+        if (substr($body, 0, 2) === "\x1f\x8b") {
+            $inflated = gzdecode($body);
+            if ($inflated !== false) {
+                $decodedBody = $inflated;
+            }
+        }
+
+        $json = json_decode($decodedBody, true);
+        return is_array($json) ? $json : null;
     }
 
     /**
