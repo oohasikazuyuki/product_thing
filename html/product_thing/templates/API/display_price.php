@@ -171,6 +171,9 @@ if (!empty($data) && is_array($data)) {
         const googleMapsApiKey = <?= json_encode($googleMapsApiKey ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
         const layerDataEndpoint = <?= json_encode($this->Url->build(['controller' => 'API', 'action' => 'layerData'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const selectedArea = <?= json_encode((string)$this->request->getQuery('area'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const selectedCity = <?= json_encode((string)$this->request->getQuery('city'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const selectedYear = <?= json_encode((string)$this->request->getQuery('year'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
         const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const layerControls = document.getElementById('layerControls');
@@ -183,7 +186,7 @@ if (!empty($data) && is_array($data)) {
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
-            {id: 'medical-facilities', label: '医療機関（XKT010）', available: true},
+            {id: 'official-land-price', label: '地価公示ポイント（XPT002）', available: true},
             {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
             {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
@@ -193,14 +196,13 @@ if (!empty($data) && is_array($data)) {
         const modeDefaults = {
             living: ['price-points', 'medical-facilities', 'facility-poi'],
             safety: ['price-points', 'hazard-zones'],
-            invest: ['price-points', 'urban-plan', 'population-heat'],
-            nature: ['price-points', 'nature-parks']
+            invest: ['price-points', 'official-land-price', 'urban-plan', 'population-heat']
         };
         let currentMode = 'living';
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
             'price-points': [],
-            'nature-parks': []
+            'official-land-price': []
         };
 
         const setMapStatus = function (message, variant) {
@@ -247,8 +249,8 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.delete(targetLayerId);
                     }
                     applyLayerVisibility();
-                    if (targetLayerId === 'nature-parks' && checkbox.checked) {
-                        loadNatureParksLayer();
+                    if (targetLayerId === 'official-land-price' && checkbox.checked) {
+                        loadOfficialLandPriceLayer();
                     }
                 });
             });
@@ -359,13 +361,13 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
-        const createNaturePopupHtml = function (record) {
+        const createInvestPopupHtml = function (record) {
             const keys = Object.keys(record || {}).slice(0, 6);
             if (keys.length === 0) {
-                return '<div><strong>自然公園地域</strong><br>属性情報なし</div>';
+                return '<div><strong>地価公示ポイント</strong><br>属性情報なし</div>';
             }
 
-            let body = '<div><strong>自然公園地域（XKT019）</strong><br>';
+            let body = '<div><strong>地価公示ポイント（XPT002）</strong><br>';
             keys.forEach(function (key) {
                 body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
             });
@@ -501,21 +503,28 @@ if (!empty($data) && is_array($data)) {
             layerMarkerRegistry[layerId] = [];
         };
 
-        const loadNatureParksLayer = async function () {
-            if (currentMode !== 'nature' || !activeLayers.has('nature-parks')) {
+        const loadOfficialLandPriceLayer = async function () {
+            if (currentMode !== 'invest' || !activeLayers.has('official-land-price')) {
                 return;
             }
-            if (layerMarkerRegistry['nature-parks'].length > 0) {
+            if (layerMarkerRegistry['official-land-price'].length > 0) {
+                return;
+            }
+            if (selectedYear === '') {
                 return;
             }
 
-            const center = mapAdapter.getCenter();
             const params = new URLSearchParams({
-                api_id: 'XKT019',
-                lat: String(center[1]),
-                lon: String(center[0]),
-                radius: '3000'
+                api_id: 'XPT002',
+                year: selectedYear
             });
+            if (selectedArea !== '') {
+                params.set('area', selectedArea);
+            }
+            if (selectedCity !== '') {
+                params.set('city', selectedCity);
+            }
+
             const response = await fetch(layerDataEndpoint + '?' + params.toString(), {
                 headers: {
                     'Accept': 'application/json'
@@ -535,13 +544,13 @@ if (!empty($data) && is_array($data)) {
                 if (!coordinates) {
                     return;
                 }
-                const marker = mapAdapter.addPoint(row, coordinates, '#15803d', createNaturePopupHtml(row));
-                layerMarkerRegistry['nature-parks'].push(marker);
+                const marker = mapAdapter.addPoint(row, coordinates, '#a855f7', createInvestPopupHtml(row));
+                layerMarkerRegistry['official-land-price'].push(marker);
                 plotted += 1;
             });
             if (plotted > 0) {
                 applyLayerVisibility();
-                setMapStatus('自然環境モードで自然公園地域レイヤーを ' + plotted + ' 件表示しました。', 'info');
+                setMapStatus('プロ・投資モードで地価公示ポイントを ' + plotted + ' 件表示しました。', 'info');
             }
         };
 
@@ -596,8 +605,8 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            if (currentMode === 'nature') {
-                loadNatureParksLayer();
+            if (currentMode === 'invest') {
+                loadOfficialLandPriceLayer();
             }
         };
 
@@ -612,8 +621,8 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
-                if (currentMode === 'nature') {
-                    loadNatureParksLayer();
+                if (currentMode === 'invest') {
+                    loadOfficialLandPriceLayer();
                 }
             });
         });

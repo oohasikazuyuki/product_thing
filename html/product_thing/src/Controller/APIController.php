@@ -376,7 +376,17 @@ class APIController extends AppController
 
         $apiId = (string)$this->request->getQuery('api_id');
         $allowedApiIds = [
-            'XKT019',
+            'XCT001',
+            'XPT002',
+            'XKT001',
+            'XKT002',
+            'XKT003',
+            'XKT014',
+            'XKT023',
+            'XKT024',
+            'XKT030',
+            'XKT013',
+            'XKT031',
         ];
         if (!in_array($apiId, $allowedApiIds, true)) {
             $payload = ['success' => false, 'message' => 'api_id is not allowed', 'data' => []];
