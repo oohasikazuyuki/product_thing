@@ -21,4 +21,16 @@ class MlitProxyControllerTest extends TestCase
         $this->post('/api/mlit/transactions');
         $this->assertResponseCode(405);
     }
+
+    public function testGeojsonRequiresQueryParams(): void
+    {
+        $this->get('/api/mlit/geojson');
+        $this->assertResponseCode(400);
+    }
+
+    public function testGeojsonOnlyAllowsGet(): void
+    {
+        $this->post('/api/mlit/geojson');
+        $this->assertResponseCode(405);
+    }
 }

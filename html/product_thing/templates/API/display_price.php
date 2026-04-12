@@ -171,8 +171,10 @@ if (!empty($data) && is_array($data)) {
         const googleMapsApiKey = <?= json_encode($googleMapsApiKey ?? null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
         const layerDataEndpoint = <?= json_encode($this->Url->build(['controller' => 'API', 'action' => 'layerData'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const geoJsonEndpoint = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
-        const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        let records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const pageQuery = new URLSearchParams(window.location.search);
         const layerControls = document.getElementById('layerControls');
         const modeButtons = document.querySelectorAll('.mode-btn');
         const modeName = {
@@ -261,6 +263,13 @@ if (!empty($data) && is_array($data)) {
         };
 
         const extractCoordinates = function (record) {
+            if (record && record.geometry && Array.isArray(record.geometry.coordinates) && record.geometry.coordinates.length === 2) {
+                const featureLng = Number(record.geometry.coordinates[0]);
+                const featureLat = Number(record.geometry.coordinates[1]);
+                if (Number.isFinite(featureLng) && Number.isFinite(featureLat)) {
+                    return [featureLng, featureLat];
+                }
+            }
             const pairs = [
                 ['Longitude', 'Latitude'],
                 ['longitude', 'latitude'],
@@ -277,6 +286,14 @@ if (!empty($data) && is_array($data)) {
             }
 
             return null;
+        };
+
+        const toRecordProperties = function (record) {
+            if (record && record.properties && typeof record.properties === 'object') {
+                return record.properties;
+            }
+
+            return record;
         };
 
         const buildAddress = function (record) {
@@ -391,6 +408,18 @@ if (!empty($data) && is_array($data)) {
                         const center = googleMap.getCenter();
                         return [center.lng(), center.lat()];
                     },
+                    getBounds: function () {
+                        const bounds = googleMap.getBounds();
+                        if (!bounds) {
+                            return null;
+                        }
+                        const sw = bounds.getSouthWest();
+                        const ne = bounds.getNorthEast();
+                        return [sw.lng(), sw.lat(), ne.lng(), ne.lat()];
+                    },
+                    onMoveEnd: function (callback) {
+                        googleMap.addListener('idle', callback);
+                    },
                     addPoint: function (record, coordinates, color, popupHtml) {
                         const marker = new google.maps.Marker({
                             map: googleMap,
@@ -463,6 +492,16 @@ if (!empty($data) && is_array($data)) {
                 getCenter: function () {
                     const center = maplibreMap.getCenter();
                     return [center.lng, center.lat];
+                },
+                getBounds: function () {
+                    const bounds = maplibreMap.getBounds();
+                    if (!bounds) {
+                        return null;
+                    }
+                    return [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+                },
+                onMoveEnd: function (callback) {
+                    maplibreMap.on('moveend', callback);
                 },
                 addPoint: function (record, coordinates, color, popupHtml) {
                     const marker = new maplibregl.Marker({color: color})
@@ -545,11 +584,48 @@ if (!empty($data) && is_array($data)) {
             }
         };
 
-        const renderMapPoints = async function () {
+        const fetchGeoJsonRecords = async function () {
+            const requiredParams = ['area', 'city', 'year'];
+            const hasRequiredParams = requiredParams.every(function (param) {
+                const value = pageQuery.get(param);
+                return typeof value === 'string' && value !== '';
+            });
+            if (!hasRequiredParams) {
+                return null;
+            }
+
+            const params = new URLSearchParams({
+                area: pageQuery.get('area'),
+                city: pageQuery.get('city'),
+                year: pageQuery.get('year')
+            });
+            const bounds = mapAdapter.getBounds();
+            if (Array.isArray(bounds) && bounds.length === 4) {
+                params.set('bbox', bounds.join(','));
+            }
+
+            const response = await fetch(geoJsonEndpoint + '?' + params.toString(), {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                return null;
+            }
+            const payload = await response.json();
+            if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
+                return null;
+            }
+
+            return payload.features;
+        };
+
+        const renderMapPoints = async function (fitBounds = true) {
             if (!Array.isArray(records) || records.length === 0) {
                 setMapStatus('表示対象データがありません。', 'warning');
                 return;
             }
+            clearLayerMarkers('price-points');
 
             setMapStatus(modeName[currentMode] + 'モードでレイヤーを準備中です。', 'secondary');
 
@@ -561,8 +637,9 @@ if (!empty($data) && is_array($data)) {
 
             for (const record of records) {
                 let coordinates = extractCoordinates(record);
+                const properties = toRecordProperties(record);
                 if (!coordinates && geocodeCount < geocodeLimit) {
-                    const address = buildAddress(record);
+                    const address = buildAddress(properties);
                     if (address) {
                         if (geocodeCache.has(address)) {
                             coordinates = geocodeCache.get(address);
@@ -578,10 +655,10 @@ if (!empty($data) && is_array($data)) {
                     continue;
                 }
 
-                const price = toPriceNumber(record.TradePrice);
+                const price = toPriceNumber(properties.TradePrice);
                 const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
-                const popupHtml = createPopupHtml(record, formattedPrice);
-                const markerWrapper = mapAdapter.addPoint(record, coordinates, priceToColor(price), popupHtml);
+                const popupHtml = createPopupHtml(properties, formattedPrice);
+                const markerWrapper = mapAdapter.addPoint(properties, coordinates, priceToColor(price), popupHtml);
                 layerMarkerRegistry['price-points'].push(markerWrapper);
                 plottedCount += 1;
                 plottedCoordinates.push(coordinates);
@@ -592,7 +669,9 @@ if (!empty($data) && is_array($data)) {
                 return;
             }
 
-            mapAdapter.fitToBounds(plottedCoordinates);
+            if (fitBounds) {
+                mapAdapter.fitToBounds(plottedCoordinates);
+            }
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
@@ -622,8 +701,31 @@ if (!empty($data) && is_array($data)) {
         renderLayerControls();
 
         mapAdapter.ready(function () {
-            renderMapPoints().catch(function () {
+            fetchGeoJsonRecords().then(function (initialRecords) {
+                if (Array.isArray(initialRecords) && initialRecords.length > 0) {
+                    records = initialRecords;
+                }
+                return renderMapPoints();
+            }).catch(function () {
                 setMapStatus('地図データの表示中にエラーが発生しました。', 'danger');
+            });
+
+            let moveRefreshTimer = null;
+            mapAdapter.onMoveEnd(function () {
+                if (moveRefreshTimer !== null) {
+                    clearTimeout(moveRefreshTimer);
+                }
+                moveRefreshTimer = setTimeout(function () {
+                    fetchGeoJsonRecords().then(function (nextRecords) {
+                        if (!Array.isArray(nextRecords) || nextRecords.length === 0) {
+                            return;
+                        }
+                        records = nextRecords;
+                        return renderMapPoints(false);
+                    }).catch(function () {
+                        setMapStatus('地図移動後の再取得に失敗しました。', 'warning');
+                    });
+                }, 700);
             });
         });
 

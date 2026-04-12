@@ -60,6 +60,7 @@ return function (RouteBuilder $routes): void {
 
         $builder->connect('/', ['controller' => 'API', 'action' => 'index']);
         $builder->connect('/api/mlit/transactions', ['controller' => 'MlitProxy', 'action' => 'transactions']);
+        $builder->connect('/api/mlit/geojson', ['controller' => 'MlitProxy', 'action' => 'geojson']);
         $builder->connect('/API', ['controller' => 'API', 'action' => 'r_EstateAPI']);
         $builder->connect('/API/select_a_p_i', ['controller' => 'API', 'action' => 'selectAPI']);
         $builder->connect(
