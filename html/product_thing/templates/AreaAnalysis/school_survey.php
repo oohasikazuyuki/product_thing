@@ -130,6 +130,20 @@ document.addEventListener('DOMContentLoaded', async function () {
         return {count, samples};
     };
 
+    const fitMapToFeatures = (features) => {
+        const bounds = new maplibregl.LngLatBounds();
+        let hasPoint = false;
+        features.forEach((f) => {
+            const c = featureCoord(f);
+            if (!c) return;
+            bounds.extend(c);
+            hasPoint = true;
+        });
+        if (hasPoint) {
+            map.fitBounds(bounds, {padding: 40, maxZoom: 14});
+        }
+    };
+
     const fetchLayer = async (def) => {
         const center = map.getCenter();
         const z = 14;
@@ -173,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             }
             const tx = addFeatures(txFeatures, '#16a34a', '取引価格', 'xit001');
+            fitMapToFeatures(txFeatures);
 
             const layerResults = [];
             for (const def of layerDefs) {
