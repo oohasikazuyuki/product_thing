@@ -156,14 +156,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
         if (!res.ok) {
-            throw new Error('レイヤーAPIの取得に失敗しました: ' + def.apiId);
+            return {count: 0, samples: [], error: 'レイヤーAPIの取得に失敗しました: ' + def.apiId};
         }
         const payload = await res.json();
         if (payload && payload.success === false) {
-            throw new Error(payload.message || ('レイヤーAPIエラー: ' + def.apiId));
+            return {count: 0, samples: [], error: (payload.message || ('レイヤーAPIエラー: ' + def.apiId))};
         }
         const features = payload && payload.body && Array.isArray(payload.body.features) ? payload.body.features : [];
-        return addFeatures(features, def.color, def.label, def.key);
+        const result = addFeatures(features, def.color, def.label, def.key);
+        return {count: result.count, samples: result.samples, error: null};
     };
 
     const toggleLayer = (layerKey, visible) => {
@@ -201,8 +202,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             fitMapToFeatures(txFeatures);
 
             const layerResults = [];
+            const layerErrors = [];
             for (const def of layerDefs) {
                 const result = await fetchLayer(def);
+                if (result.error) {
+                    layerErrors.push(result.error);
+                }
                 layerResults.push({label: def.label, key: def.key, count: result.count, samples: result.samples});
             }
 
@@ -215,11 +220,16 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             });
 
-            status.className = 'alert alert-success mt-3 mb-0';
-            status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
+            if (layerErrors.length > 0) {
+                status.className = 'alert alert-warning mt-3 mb-0';
+                status.textContent = '一部レイヤーの取得に失敗しました: ' + layerErrors.join(' / ');
+            } else {
+                status.className = 'alert alert-success mt-3 mb-0';
+                status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
+            }
         } catch (e) {
             status.className = 'alert alert-danger mt-3 mb-0';
-            status.textContent = 'データ取得に失敗しました。';
+            status.textContent = e && e.message ? ('データ取得に失敗しました: ' + e.message) : 'データ取得に失敗しました。';
         }
     });
 });
