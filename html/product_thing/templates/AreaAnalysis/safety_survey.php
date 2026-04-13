@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
             const txWarning = txGeo && txGeo.warning ? txGeo.warning : null;
             let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            const txTotalCount = Number(txGeo && txGeo.transaction_count ? txGeo.transaction_count : txFeatures.length);
             if (district) {
                 txFeatures = txFeatures.filter((f) => {
                     const p = f && f.properties ? f.properties : {};
@@ -135,13 +136,17 @@ document.addEventListener('DOMContentLoaded', async function () {
             const r3 = await fetchLayer('XKT003', '#0ea5e9', '立地適正化計画');
             const layerErrors = [r1.error, r2.error, r3.error].filter(Boolean);
             const warnings = txWarning ? [txWarning].concat(layerErrors) : layerErrors;
+            const displayTxCount = txCount > 0 ? txCount : txTotalCount;
+            if (txCount === 0 && txTotalCount > 0) {
+                warnings.push('取引データは' + txTotalCount + '件ありますが、座標点が取得できないため地図には表示できません。');
+            }
 
             if (warnings.length > 0) {
                 status.className = 'alert alert-warning mt-3 mb-0';
-                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + warnings.join(' / ');
+                status.textContent = '取引価格: ' + displayTxCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
-                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件';
+                status.textContent = '取引価格: ' + displayTxCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件';
             }
         } catch (e) {
             status.className = 'alert alert-danger mt-3 mb-0';
