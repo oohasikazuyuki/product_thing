@@ -18,9 +18,9 @@
     <p class="small text-muted">出典：不動産情報ライブラリ（国土交通省）</p>
     <div class="mb-3">
         <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
-        <?= $this->Html->link('防災調査へ', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
+        <?= $this->Html->link('防災調査へ', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
     </div>
-    <?= $this->element('analysis_filter', ['targetAction' => 'schoolSurvey', 'area' => $area, 'city' => $city, 'year' => $year]) ?>
+    <?= $this->element('analysis_filter', ['targetAction' => 'schoolSurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div class="row">
         <div class="col-lg-8">
             <div id="map"></div>
@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const area = <?= json_encode($area, JSON_UNESCAPED_UNICODE) ?>;
     const city = <?= json_encode($city, JSON_UNESCAPED_UNICODE) ?>;
     const year = <?= json_encode($year, JSON_UNESCAPED_UNICODE) ?>;
+    const district = <?= json_encode($district, JSON_UNESCAPED_UNICODE) ?>;
     const layerDataUrl = <?= json_encode($this->Url->build(['controller' => 'LayerData', 'action' => 'layerData'])) ?>;
     const mlitGeoJsonUrl = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'])) ?>;
     const status = document.getElementById('status');
@@ -164,7 +165,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
             const txGeo = await txRes.json();
-            const txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            if (district) {
+                txFeatures = txFeatures.filter((f) => {
+                    const p = f && f.properties ? f.properties : {};
+                    return (p.DistrictName || '') === district;
+                });
+            }
             const tx = addFeatures(txFeatures, '#16a34a', '取引価格', 'xit001');
 
             const layerResults = [];

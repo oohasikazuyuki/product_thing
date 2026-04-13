@@ -17,9 +17,9 @@
     <p class="small text-muted">出典：不動産情報ライブラリ（国土交通省）</p>
     <div class="mb-3">
         <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
-        <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
+        <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
     </div>
-    <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year]) ?>
+    <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div id="map"></div>
     <div id="status" class="alert alert-secondary mt-3 mb-0">読み込み中...</div>
 </div>
@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const area = <?= json_encode($area, JSON_UNESCAPED_UNICODE) ?>;
     const city = <?= json_encode($city, JSON_UNESCAPED_UNICODE) ?>;
     const year = <?= json_encode($year, JSON_UNESCAPED_UNICODE) ?>;
+    const district = <?= json_encode($district, JSON_UNESCAPED_UNICODE) ?>;
     const layerDataUrl = <?= json_encode($this->Url->build(['controller' => 'LayerData', 'action' => 'layerData'])) ?>;
     const mlitGeoJsonUrl = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'])) ?>;
     const status = document.getElementById('status');
@@ -93,7 +94,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
             const txGeo = await txRes.json();
-            const txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            if (district) {
+                txFeatures = txFeatures.filter((f) => {
+                    const p = f && f.properties ? f.properties : {};
+                    return (p.DistrictName || '') === district;
+                });
+            }
             const txCount = addFeatures(txFeatures, '#16a34a', '取引価格');
 
             const c1 = await fetchLayer('XKT001', '#4b5563', '都市計画区域');
