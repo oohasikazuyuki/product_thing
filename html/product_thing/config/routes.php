@@ -76,6 +76,10 @@ return function (RouteBuilder $routes): void {
         $builder->connect('/layer-data', ['controller' => 'LayerData', 'action' => 'layerData']);
         $builder->connect('/api/layer-data', ['controller' => 'LayerData', 'action' => 'layerData']);
 
+        // Area analysis URLs
+        $builder->connect('/analysis/safety', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey']);
+        $builder->connect('/analysis/school', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey']);
+
         // MLIT proxy URLs
         $builder->connect('/api/mlit/transactions', ['controller' => 'MlitProxy', 'action' => 'transactions']);
         $builder->connect('/api/mlit/geojson', ['controller' => 'MlitProxy', 'action' => 'geojson']);

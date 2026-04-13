@@ -9,8 +9,14 @@
 <body>
 <div class="container mt-5">
     <h1 class="mb-4 text-center">条件選択画面</h1>
-    <div class="mb-3 text-right">
-        <?= $this->Html->link('API探索（別機能）', '/api-explorer', ['class' => 'btn btn-outline-info']) ?>
+    <div class="mb-3 d-flex justify-content-between">
+        <div>
+            <?= $this->Html->link('防災調査画面', '/analysis/safety', ['class' => 'btn btn-outline-danger btn-sm']) ?>
+            <?= $this->Html->link('学校調査画面', '/analysis/school', ['class' => 'btn btn-outline-primary btn-sm']) ?>
+        </div>
+        <div>
+            <?= $this->Html->link('API探索（別機能）', '/api-explorer', ['class' => 'btn btn-outline-info']) ?>
+        </div>
     </div>
     <?= $this->Form->create(null, ['url' => '/price-search/select', 'class' => 'needs-validation', 'novalidate' => true]) ?>
     <div class="form-group">
