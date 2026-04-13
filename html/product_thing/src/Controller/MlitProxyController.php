@@ -61,12 +61,15 @@ class MlitProxyController extends AppController
         if ($pointStatus < 400) {
             $pointData = $this->extractDataRows($points->getStringBody());
         } else {
-            $warning = 'Point source is unavailable. status=' . $pointStatus;
+            $pointBody = $this->decodeJsonBody($points->getStringBody());
+            $pointMessage = is_array($pointBody) && isset($pointBody['message']) ? (string)$pointBody['message'] : '';
+            $warning = 'Point source is unavailable. status=' . $pointStatus . ($pointMessage !== '' ? (' message=' . $pointMessage) : '');
         }
 
         $featureCollection = [
             'type' => 'FeatureCollection',
             'features' => $this->buildFeatures($transactionData, $pointData),
+            'transaction_count' => count($transactionData),
         ];
         if ($warning !== null) {
             $featureCollection['warning'] = $warning;

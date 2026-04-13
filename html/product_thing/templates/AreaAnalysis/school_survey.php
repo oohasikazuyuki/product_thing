@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
             const txWarning = txGeo && txGeo.warning ? txGeo.warning : null;
             let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            const txTotalCount = Number(txGeo && txGeo.transaction_count ? txGeo.transaction_count : txFeatures.length);
             if (district) {
                 txFeatures = txFeatures.filter((f) => {
                     const p = f && f.properties ? f.properties : {};
@@ -212,7 +213,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 layerResults.push({label: def.label, key: def.key, count: result.count, samples: result.samples});
             }
 
-            renderSummary([{label: '取引価格', count: tx.count}].concat(layerResults.map((r) => ({label: r.label, count: r.count}))));
+            const displayTxCount = tx.count > 0 ? tx.count : txTotalCount;
+            renderSummary([{label: '取引価格', count: displayTxCount}].concat(layerResults.map((r) => ({label: r.label, count: r.count}))));
             renderList(layerResults.flatMap((r) => r.samples).slice(0, 12));
 
             document.querySelectorAll('.layer-toggle').forEach((checkbox) => {
@@ -224,6 +226,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             const warnings = [];
             if (txWarning) {
                 warnings.push(txWarning);
+            }
+            if (tx.count === 0 && txTotalCount > 0) {
+                warnings.push('取引データは' + txTotalCount + '件ありますが、座標点が取得できないため地図には表示できません。');
             }
             warnings.push(...layerErrors);
 
