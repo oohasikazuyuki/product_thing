@@ -78,8 +78,17 @@ use Cake\Utility\Security;
  * that changes from configuration that does not. This makes deployment simpler.
  */
 
-$dotenv  = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../../..');
-$dotenv->load();
+$dotenvCandidates = [
+    dirname(__DIR__),
+    dirname(__DIR__, 2),
+    dirname(__DIR__, 3),
+];
+foreach ($dotenvCandidates as $dotenvDir) {
+    if (file_exists($dotenvDir . DS . '.env')) {
+        \Dotenv\Dotenv::createImmutable($dotenvDir)->safeLoad();
+        break;
+    }
+}
 try {
     Configure::config('default', new PhpConfig());
     Configure::load('app', 'default', false);

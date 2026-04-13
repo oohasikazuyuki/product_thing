@@ -10,14 +10,15 @@
 <div class="container mt-5">
     <h1 class="mb-4 text-center">条件選択画面</h1>
     <div class="mb-3 text-right">
-        <?= $this->Html->link('API探索（別機能）', ['controller' => 'API', 'action' => 'apiExplorer'], ['class' => 'btn btn-outline-info']) ?>
+        <?= $this->Html->link('API探索（別機能）', '/api-explorer', ['class' => 'btn btn-outline-info']) ?>
     </div>
-    <?= $this->Form->create(null, ['url' => ['action' => 'selectAPI'], 'class' => 'needs-validation', 'novalidate' => true]) ?>
+    <?= $this->Form->create(null, ['url' => '/price-search/select', 'class' => 'needs-validation', 'novalidate' => true]) ?>
     <div class="form-group">
         <?= $this->Form->control('prefecture', [
             'label' => ['text' => '都道府県', 'class' => 'form-label'],
             'type' => 'select',
             'options' => $prefectures,
+            'default' => $selectedPrefecture ?? '',
             'class' => 'form-control',
             'empty' => '選択してください',
             'required' => true,
@@ -44,6 +45,7 @@
             'label' => ['text' => '売買年度', 'class' => 'form-label'],
             'type' => 'select',
             'options' => $years,
+            'default' => $selectedYear ?? '',
             'class' => 'form-control',
             'empty' => '選択してください',
             'required' => true,
@@ -73,10 +75,20 @@
             }
         });
 
-        // 都道府県が変更されたときにのみフォームを送信
-        document.getElementById('prefecture').addEventListener('change', function() {
-            if (this.value) form.submit();
-        });
+        const prefecture = document.getElementById('prefecture');
+        const year = document.getElementById('year');
+        const requestCities = function () {
+            if (prefecture.value) {
+                const query = new URLSearchParams({
+                    prefecture: prefecture.value,
+                    year: year.value || ''
+                });
+                window.location.href = form.action + '?' + query.toString();
+            }
+        };
+
+        prefecture.addEventListener('change', requestCities);
+        year.addEventListener('change', requestCities);
     });
 </script>
 </body>
