@@ -376,7 +376,19 @@ class APIController extends AppController
 
         $apiId = (string)$this->request->getQuery('api_id');
         $allowedApiIds = [
-            'XKT019',
+            'XCT001',
+            'XPT001',
+            'XPT002',
+            'XKT001',
+            'XKT002',
+            'XKT003',
+            'XKT004',
+            'XKT005',
+            'XKT006',
+            'XKT007',
+            'XKT010',
+            'XKT011',
+            'XKT013',
         ];
         if (!in_array($apiId, $allowedApiIds, true)) {
             $payload = ['success' => false, 'message' => 'api_id is not allowed', 'data' => []];
@@ -425,7 +437,7 @@ class APIController extends AppController
         }
 
         $data = isset($decoded['data']) && is_array($decoded['data']) ? $decoded['data'] : [];
-        $payload = ['success' => true, 'api_id' => $apiId, 'request_url' => $requestUrl, 'data' => $data];
+        $payload = ['success' => true, 'api_id' => $apiId, 'request_url' => $requestUrl, 'data' => $data, 'body' => $decoded];
         return $this->response->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
     }
 
