@@ -47,10 +47,24 @@
                 <div id="layerControls" class="mb-0"></div>
             </div>
         </div>
+        <div class="card mb-3">
+            <div class="card-body p-3">
+                <h3 class="h6 mb-2">ワンクリック物件調査</h3>
+                <p class="small text-muted mb-2">地図をクリックすると、都市計画・防災の判定サマリーを表示します。</p>
+                <div id="dueDiligenceResult" class="small mb-0">未実行</div>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body p-3">
+                <h3 class="h6 mb-2">AI査定・相場分析（簡易）</h3>
+                <div id="appraisalSummary" class="small mb-0">算出待ち</div>
+            </div>
+        </div>
         <div id="map" aria-label="不動産データの地図"></div>
         <div id="mapStatus" class="alert alert-secondary mt-3 mb-0">
             地図を準備中です。
         </div>
+        <p class="small text-muted mt-2 mb-0">出典：不動産情報ライブラリ（国土交通省）</p>
     </div>
 
     <div class="row mb-4">
@@ -172,9 +186,10 @@ if (!empty($data) && is_array($data)) {
         const useGoogleMaps = Boolean(googleMapsApiKey && window.google && window.google.maps);
         const layerDataEndpoint = <?= json_encode($this->Url->build(['controller' => 'API', 'action' => 'layerData'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const selectedArea = <?= json_encode((string)$this->request->getQuery('area'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        const selectedCity = <?= json_encode((string)$this->request->getQuery('city'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const selectedYear = <?= json_encode((string)$this->request->getQuery('year'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
+        const dueDiligenceResult = document.getElementById('dueDiligenceResult');
+        const appraisalSummary = document.getElementById('appraisalSummary');
         const records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const layerControls = document.getElementById('layerControls');
         const modeButtons = document.querySelectorAll('.mode-btn');
@@ -186,23 +201,41 @@ if (!empty($data) && is_array($data)) {
         };
         const layerCatalog = [
             {id: 'price-points', label: '取引価格ポイント', available: true},
-            {id: 'official-land-price', label: '地価公示ポイント（XPT002）', available: true},
-            {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
-            {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
-            {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
-            {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
-            {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
+            {id: 'xpt001-points', label: '取引・成約ポイント（XPT001）', available: true},
+            {id: 'xpt002-points', label: '地価公示ポイント（XPT002）', available: true},
+            {id: 'xkt002-zoning', label: '用途地域（XKT002）', available: true},
+            {id: 'xkt003-location', label: '立地適正化計画（XKT003）', available: true},
+            {id: 'xkt010-medical', label: '医療機関（XKT010）', available: true},
+            {id: 'xkt011-welfare', label: '福祉施設（XKT011）', available: true},
+            {id: 'xkt004-school', label: '小学校区（XKT004）', available: true},
+            {id: 'xkt005-school', label: '中学校区（XKT005）', available: true},
+            {id: 'xkt006-school', label: '学校（XKT006）', available: true},
+            {id: 'xkt007-childcare', label: '保育園・幼稚園（XKT007）', available: true},
+            {id: 'xkt013-population', label: '将来推計人口（XKT013）', available: true},
+            {id: 'xkt001-planning', label: '都市計画区域/区域区分（XKT001）', available: true}
         ];
         const modeDefaults = {
-            living: ['price-points', 'medical-facilities', 'facility-poi'],
-            safety: ['price-points', 'hazard-zones'],
-            invest: ['price-points', 'official-land-price', 'urban-plan', 'population-heat']
+            living: ['price-points', 'xkt010-medical', 'xkt011-welfare', 'xkt004-school', 'xkt005-school', 'xkt006-school', 'xkt007-childcare'],
+            safety: ['price-points', 'xkt001-planning'],
+            invest: ['price-points', 'xpt001-points', 'xpt002-points', 'xkt002-zoning', 'xkt003-location', 'xkt013-population'],
+            nature: ['price-points']
         };
         let currentMode = 'living';
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
             'price-points': [],
-            'official-land-price': []
+            'xpt001-points': [],
+            'xpt002-points': [],
+            'xkt002-zoning': [],
+            'xkt003-location': [],
+            'xkt010-medical': [],
+            'xkt011-welfare': [],
+            'xkt004-school': [],
+            'xkt005-school': [],
+            'xkt006-school': [],
+            'xkt007-childcare': [],
+            'xkt013-population': [],
+            'xkt001-planning': []
         };
 
         const setMapStatus = function (message, variant) {
@@ -249,8 +282,8 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.delete(targetLayerId);
                     }
                     applyLayerVisibility();
-                    if (targetLayerId === 'official-land-price' && checkbox.checked) {
-                        loadOfficialLandPriceLayer();
+                    if (checkbox.checked) {
+                        ensureLayerLoaded(targetLayerId);
                     }
                 });
             });
@@ -263,12 +296,33 @@ if (!empty($data) && is_array($data)) {
         };
 
         const extractCoordinates = function (record) {
+            if (record && record.geometry && Array.isArray(record.geometry.coordinates)) {
+                const geometry = record.geometry;
+                if (geometry.type === 'Point' && geometry.coordinates.length >= 2) {
+                    return [Number(geometry.coordinates[0]), Number(geometry.coordinates[1])];
+                }
+                if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates[0])) {
+                    const p = geometry.coordinates[0][0];
+                    if (Array.isArray(p) && p.length >= 2) {
+                        return [Number(p[0]), Number(p[1])];
+                    }
+                }
+                if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates[0]) && Array.isArray(geometry.coordinates[0][0])) {
+                    const p = geometry.coordinates[0][0][0];
+                    if (Array.isArray(p) && p.length >= 2) {
+                        return [Number(p[0]), Number(p[1])];
+                    }
+                }
+            }
+
             const pairs = [
                 ['Longitude', 'Latitude'],
                 ['longitude', 'latitude'],
                 ['lng', 'lat'],
                 ['Lon', 'Lat'],
-                ['LON', 'LAT']
+                ['LON', 'LAT'],
+                ['経度', '緯度'],
+                ['lon', 'lat']
             ];
             for (const pair of pairs) {
                 const lng = Number(record[pair[0]]);
@@ -361,18 +415,26 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
-        const createInvestPopupHtml = function (record) {
+        const createGenericPopupHtml = function (title, record) {
             const keys = Object.keys(record || {}).slice(0, 6);
             if (keys.length === 0) {
-                return '<div><strong>地価公示ポイント</strong><br>属性情報なし</div>';
+                return '<div><strong>' + escapeHtml(title) + '</strong><br>属性情報なし</div>';
             }
 
-            let body = '<div><strong>地価公示ポイント（XPT002）</strong><br>';
+            let body = '<div><strong>' + escapeHtml(title) + '</strong><br>';
             keys.forEach(function (key) {
-                body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
+                const value = record[key];
+                body += escapeHtml(key) + ': ' + escapeHtml(typeof value === 'object' ? JSON.stringify(value) : value) + '<br>';
             });
             body += '</div>';
             return body;
+        };
+
+        const lonToTile = function (lon, zoom) {
+            return Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
+        };
+        const latToTile = function (lat, zoom) {
+            return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
         };
 
         const mapAdapter = (function () {
@@ -388,6 +450,11 @@ if (!empty($data) && is_array($data)) {
                 return {
                     ready: function (callback) {
                         callback();
+                    },
+                    onClick: function (handler) {
+                        googleMap.addListener('click', function (event) {
+                            handler([event.latLng.lng(), event.latLng.lat()]);
+                        });
                     },
                     getCenter: function () {
                         const center = googleMap.getCenter();
@@ -462,6 +529,11 @@ if (!empty($data) && is_array($data)) {
                 ready: function (callback) {
                     maplibreMap.on('load', callback);
                 },
+                onClick: function (handler) {
+                    maplibreMap.on('click', function (event) {
+                        handler([event.lngLat.lng, event.lngLat.lat]);
+                    });
+                },
                 getCenter: function () {
                     const center = maplibreMap.getCenter();
                     return [center.lng, center.lat];
@@ -503,55 +575,136 @@ if (!empty($data) && is_array($data)) {
             layerMarkerRegistry[layerId] = [];
         };
 
-        const loadOfficialLandPriceLayer = async function () {
-            if (currentMode !== 'invest' || !activeLayers.has('official-land-price')) {
-                return;
-            }
-            if (layerMarkerRegistry['official-land-price'].length > 0) {
-                return;
-            }
-            if (selectedYear === '') {
-                return;
-            }
+        const layerDefinitions = {
+            'xpt001-points': {apiId: 'XPT001', title: '取引・成約ポイント（XPT001）', color: '#f59e0b', tile: true, extra: function () { return {from: '20241', to: '20244'}; }},
+            'xpt002-points': {apiId: 'XPT002', title: '地価公示ポイント（XPT002）', color: '#a855f7', tile: true},
+            'xkt001-planning': {apiId: 'XKT001', title: '都市計画区域/区域区分（XKT001）', color: '#4b5563', tile: true},
+            'xkt002-zoning': {apiId: 'XKT002', title: '用途地域（XKT002）', color: '#2563eb', tile: true},
+            'xkt003-location': {apiId: 'XKT003', title: '立地適正化計画（XKT003）', color: '#0ea5e9', tile: true},
+            'xkt004-school': {apiId: 'XKT004', title: '小学校区（XKT004）', color: '#16a34a', tile: true},
+            'xkt005-school': {apiId: 'XKT005', title: '中学校区（XKT005）', color: '#22c55e', tile: true},
+            'xkt006-school': {apiId: 'XKT006', title: '学校（XKT006）', color: '#14b8a6', tile: true},
+            'xkt007-childcare': {apiId: 'XKT007', title: '保育園・幼稚園（XKT007）', color: '#10b981', tile: true},
+            'xkt010-medical': {apiId: 'XKT010', title: '医療機関（XKT010）', color: '#ef4444', tile: true},
+            'xkt011-welfare': {apiId: 'XKT011', title: '福祉施設（XKT011）', color: '#ec4899', tile: true},
+            'xkt013-population': {apiId: 'XKT013', title: '将来推計人口（XKT013）', color: '#7c3aed', tile: true}
+        };
 
-            const params = new URLSearchParams({
-                api_id: 'XPT002',
-                year: selectedYear
-            });
-            if (selectedArea !== '') {
-                params.set('area', selectedArea);
-            }
-            if (selectedCity !== '') {
-                params.set('city', selectedCity);
-            }
-
-            const response = await fetch(layerDataEndpoint + '?' + params.toString(), {
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
+        const requestLayerData = async function (apiId, query) {
+            const params = new URLSearchParams(Object.assign({api_id: apiId}, query || {}));
+            const response = await fetch(layerDataEndpoint + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
             if (!response.ok) {
-                return;
+                return null;
             }
             const payload = await response.json();
-            if (!payload.success || !Array.isArray(payload.data)) {
+            return payload.success ? payload : null;
+        };
+
+        const ensureLayerLoaded = async function (layerId) {
+            const def = layerDefinitions[layerId];
+            if (!def || !activeLayers.has(layerId)) {
+                return;
+            }
+            if (layerMarkerRegistry[layerId].length > 0) {
                 return;
             }
 
+            const center = mapAdapter.getCenter();
+            const query = {};
+            if (def.tile) {
+                const z = 14;
+                query.response_format = 'geojson';
+                query.z = String(z);
+                query.x = String(lonToTile(center[0], z));
+                query.y = String(latToTile(center[1], z));
+            }
+            if (typeof def.extra === 'function') {
+                Object.assign(query, def.extra());
+            }
+            const payload = await requestLayerData(def.apiId, query);
+            if (!payload) {
+                return;
+            }
+
+            const rows = Array.isArray(payload.body && payload.body.features)
+                ? payload.body.features
+                : (Array.isArray(payload.data) ? payload.data : []);
             let plotted = 0;
-            payload.data.forEach(function (row) {
+            rows.forEach(function (row) {
                 const coordinates = extractCoordinates(row);
                 if (!coordinates) {
                     return;
                 }
-                const marker = mapAdapter.addPoint(row, coordinates, '#a855f7', createInvestPopupHtml(row));
-                layerMarkerRegistry['official-land-price'].push(marker);
+                const props = row.properties && typeof row.properties === 'object' ? row.properties : row;
+                const marker = mapAdapter.addPoint(props, coordinates, def.color, createGenericPopupHtml(def.title, props));
+                layerMarkerRegistry[layerId].push(marker);
                 plotted += 1;
             });
             if (plotted > 0) {
                 applyLayerVisibility();
-                setMapStatus('プロ・投資モードで地価公示ポイントを ' + plotted + ' 件表示しました。', 'info');
+                setMapStatus(def.title + ' を ' + plotted + ' 件表示しました。', 'info');
             }
+        };
+
+        const runDueDiligence = async function (coordinates) {
+            dueDiligenceResult.textContent = '調査中...';
+            const z = 14;
+            const baseQuery = {
+                response_format: 'geojson',
+                z: String(z),
+                x: String(lonToTile(coordinates[0], z)),
+                y: String(latToTile(coordinates[1], z))
+            };
+            const [zoning, urbanArea, flood] = await Promise.all([
+                requestLayerData('XKT002', baseQuery),
+                requestLayerData('XKT001', baseQuery),
+                requestLayerData('XKT013', baseQuery)
+            ]);
+            const zoningCount = zoning && zoning.body && Array.isArray(zoning.body.features) ? zoning.body.features.length : 0;
+            const urbanCount = urbanArea && urbanArea.body && Array.isArray(urbanArea.body.features) ? urbanArea.body.features.length : 0;
+            const popCount = flood && flood.body && Array.isArray(flood.body.features) ? flood.body.features.length : 0;
+            dueDiligenceResult.innerHTML =
+                '都市計画判定(XKT001): <strong>' + urbanCount + '件</strong> / ' +
+                '用途地域(XKT002): <strong>' + zoningCount + '件</strong> / ' +
+                '将来人口メッシュ(XKT013): <strong>' + popCount + '件</strong>';
+        };
+
+        const loadAppraisalSummary = async function () {
+            if (selectedArea === '' || selectedYear === '') {
+                appraisalSummary.textContent = '査定条件（area/year）が不足しています。';
+                return;
+            }
+
+            const payload = await requestLayerData('XCT001', {
+                year: selectedYear,
+                area: selectedArea,
+                division: '00'
+            });
+            if (!payload || !Array.isArray(payload.data) || payload.data.length === 0) {
+                appraisalSummary.textContent = '鑑定評価書データ（XCT001）が取得できませんでした。';
+                return;
+            }
+
+            const values = [];
+            payload.data.forEach(function (row) {
+                Object.keys(row).forEach(function (key) {
+                    const v = row[key];
+                    if (typeof v === 'string' && /価格|price/i.test(key)) {
+                        const n = Number(v.replace(/[^\d.-]/g, ''));
+                        if (Number.isFinite(n) && n > 0) {
+                            values.push(n);
+                        }
+                    }
+                });
+            });
+            if (values.length === 0) {
+                appraisalSummary.textContent = '鑑定価格の数値項目を抽出できませんでした。';
+                return;
+            }
+
+            const sum = values.reduce(function (acc, n) { return acc + n; }, 0);
+            const avg = Math.round(sum / values.length);
+            appraisalSummary.innerHTML = 'XCT001件数: <strong>' + payload.data.length + '件</strong> / 推定平均単価: <strong>' + avg.toLocaleString() + '</strong>';
         };
 
         const renderMapPoints = async function () {
@@ -605,9 +758,9 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            if (currentMode === 'invest') {
-                loadOfficialLandPriceLayer();
-            }
+            await Promise.all(Array.from(activeLayers).map(function (layerId) {
+                return ensureLayerLoaded(layerId);
+            }));
         };
 
         modeButtons.forEach(function (button) {
@@ -621,18 +774,27 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
-                if (currentMode === 'invest') {
-                    loadOfficialLandPriceLayer();
-                }
+                Array.from(activeLayers).forEach(function (layerId) {
+                    ensureLayerLoaded(layerId);
+                });
             });
         });
 
         syncModeButtons();
         renderLayerControls();
+        loadAppraisalSummary().catch(function () {
+            appraisalSummary.textContent = '査定サマリーの取得に失敗しました。';
+        });
 
         mapAdapter.ready(function () {
             renderMapPoints().catch(function () {
                 setMapStatus('地図データの表示中にエラーが発生しました。', 'danger');
+            });
+        });
+
+        mapAdapter.onClick(function (coordinates) {
+            runDueDiligence(coordinates).catch(function () {
+                dueDiligenceResult.textContent = '調査に失敗しました。';
             });
         });
 
