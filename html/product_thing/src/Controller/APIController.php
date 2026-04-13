@@ -387,6 +387,8 @@ class APIController extends AppController
 
         $apiId = (string)$this->request->getQuery('api_id');
         $allowedApiIds = [
+            'XKT010', // 医療機関
+            'XKT029', // 土砂災害警戒区域
             'XKT019',
         ];
         if (!in_array($apiId, $allowedApiIds, true)) {

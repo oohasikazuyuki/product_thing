@@ -187,14 +187,19 @@ if (!empty($data) && is_array($data)) {
             {id: 'price-points', label: '取引価格ポイント', available: true},
             {id: 'medical-facilities', label: '医療機関（XKT010）', available: true},
             {id: 'facility-poi', label: '生活施設レイヤー（準備中）', available: false},
-            {id: 'hazard-zones', label: '防災リスクレイヤー（準備中）', available: false},
+            {id: 'hazard-zones', label: '土砂災害警戒区域（XKT029）', available: true},
             {id: 'urban-plan', label: '都市計画レイヤー（準備中）', available: false},
             {id: 'population-heat', label: '人口ヒートマップ（準備中）', available: false},
             {id: 'nature-parks', label: '自然公園地域（XKT019）', available: true}
         ];
+        const layerApiConfigs = {
+            'medical-facilities': {apiId: 'XKT010', color: '#dc2626', title: '医療機関'},
+            'hazard-zones': {apiId: 'XKT029', color: '#f59e0b', title: '土砂災害警戒区域'},
+            'nature-parks': {apiId: 'XKT019', color: '#15803d', title: '自然公園地域'}
+        };
         const modeDefaults = {
             living: ['price-points', 'medical-facilities', 'facility-poi'],
-            safety: ['price-points', 'hazard-zones'],
+            safety: ['price-points', 'hazard-zones', 'medical-facilities'],
             invest: ['price-points', 'urban-plan', 'population-heat'],
             nature: ['price-points', 'nature-parks']
         };
@@ -202,6 +207,8 @@ if (!empty($data) && is_array($data)) {
         const activeLayers = new Set(modeDefaults[currentMode]);
         const layerMarkerRegistry = {
             'price-points': [],
+            'medical-facilities': [],
+            'hazard-zones': [],
             'nature-parks': []
         };
 
@@ -247,10 +254,11 @@ if (!empty($data) && is_array($data)) {
                         activeLayers.add(targetLayerId);
                     } else {
                         activeLayers.delete(targetLayerId);
+                        clearLayerMarkers(targetLayerId);
                     }
                     applyLayerVisibility();
-                    if (targetLayerId === 'nature-parks' && checkbox.checked) {
-                        loadNatureParksLayer();
+                    if (checkbox.checked) {
+                        loadApiLayer(targetLayerId);
                     }
                 });
             });
@@ -376,13 +384,13 @@ if (!empty($data) && is_array($data)) {
                 '</div>';
         };
 
-        const createNaturePopupHtml = function (record) {
+        const createLayerPopupHtml = function (record, title) {
             const keys = Object.keys(record || {}).slice(0, 6);
             if (keys.length === 0) {
-                return '<div><strong>自然公園地域</strong><br>属性情報なし</div>';
+                return '<div><strong>' + escapeHtml(title) + '</strong><br>属性情報なし</div>';
             }
 
-            let body = '<div><strong>自然公園地域（XKT019）</strong><br>';
+            let body = '<div><strong>' + escapeHtml(title) + '</strong><br>';
             keys.forEach(function (key) {
                 body += escapeHtml(key) + ': ' + escapeHtml(record[key]) + '<br>';
             });
@@ -540,17 +548,16 @@ if (!empty($data) && is_array($data)) {
             layerMarkerRegistry[layerId] = [];
         };
 
-        const loadNatureParksLayer = async function () {
-            if (currentMode !== 'nature' || !activeLayers.has('nature-parks')) {
+        const loadApiLayer = async function (layerId) {
+            const config = layerApiConfigs[layerId];
+            if (!config || !activeLayers.has(layerId)) {
                 return;
             }
-            if (layerMarkerRegistry['nature-parks'].length > 0) {
-                return;
-            }
+            clearLayerMarkers(layerId);
 
             const center = mapAdapter.getCenter();
             const params = new URLSearchParams({
-                api_id: 'XKT019',
+                api_id: config.apiId,
                 lat: String(center[1]),
                 lon: String(center[0]),
                 radius: '3000'
@@ -574,14 +581,23 @@ if (!empty($data) && is_array($data)) {
                 if (!coordinates) {
                     return;
                 }
-                const marker = mapAdapter.addPoint(row, coordinates, '#15803d', createNaturePopupHtml(row));
-                layerMarkerRegistry['nature-parks'].push(marker);
+                const marker = mapAdapter.addPoint(row, coordinates, config.color, createLayerPopupHtml(row, config.title + '（' + config.apiId + '）'));
+                layerMarkerRegistry[layerId].push(marker);
                 plotted += 1;
             });
+
             if (plotted > 0) {
                 applyLayerVisibility();
-                setMapStatus('自然環境モードで自然公園地域レイヤーを ' + plotted + ' 件表示しました。', 'info');
+                setMapStatus(modeName[currentMode] + 'モードで ' + config.title + ' レイヤーを ' + plotted + ' 件表示しました。', 'info');
             }
+        };
+
+        const reloadActiveApiLayers = function () {
+            Object.keys(layerApiConfigs).forEach(function (layerId) {
+                if (activeLayers.has(layerId)) {
+                    loadApiLayer(layerId);
+                }
+            });
         };
 
         const fetchGeoJsonRecords = async function () {
@@ -675,9 +691,7 @@ if (!empty($data) && is_array($data)) {
             applyLayerVisibility();
             const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
             setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            if (currentMode === 'nature') {
-                loadNatureParksLayer();
-            }
+            reloadActiveApiLayers();
         };
 
         modeButtons.forEach(function (button) {
@@ -691,9 +705,7 @@ if (!empty($data) && is_array($data)) {
                 renderLayerControls();
                 applyLayerVisibility();
                 setMapStatus(modeName[currentMode] + 'モードに切り替えました。', 'info');
-                if (currentMode === 'nature') {
-                    loadNatureParksLayer();
-                }
+                reloadActiveApiLayers();
             });
         });
 
@@ -718,10 +730,13 @@ if (!empty($data) && is_array($data)) {
                 moveRefreshTimer = setTimeout(function () {
                     fetchGeoJsonRecords().then(function (nextRecords) {
                         if (!Array.isArray(nextRecords) || nextRecords.length === 0) {
+                            reloadActiveApiLayers();
                             return;
                         }
                         records = nextRecords;
-                        return renderMapPoints(false);
+                        return renderMapPoints(false).then(function () {
+                            reloadActiveApiLayers();
+                        });
                     }).catch(function () {
                         setMapStatus('地図移動後の再取得に失敗しました。', 'warning');
                     });
