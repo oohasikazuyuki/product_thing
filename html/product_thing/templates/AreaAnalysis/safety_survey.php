@@ -73,6 +73,20 @@ document.addEventListener('DOMContentLoaded', async function () {
         return count;
     };
 
+    const fitMapToFeatures = (features) => {
+        const bounds = new maplibregl.LngLatBounds();
+        let hasPoint = false;
+        features.forEach((f) => {
+            const c = featureCoord(f);
+            if (!c) return;
+            bounds.extend(c);
+            hasPoint = true;
+        });
+        if (hasPoint) {
+            map.fitBounds(bounds, {padding: 40, maxZoom: 14});
+        }
+    };
+
     const fetchLayer = async (apiId, color, label) => {
         const center = map.getCenter();
         const z = 14;
@@ -102,6 +116,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             }
             const txCount = addFeatures(txFeatures, '#16a34a', '取引価格');
+            fitMapToFeatures(txFeatures);
 
             const c1 = await fetchLayer('XKT001', '#4b5563', '都市計画区域');
             const c2 = await fetchLayer('XKT002', '#2563eb', '用途地域');
