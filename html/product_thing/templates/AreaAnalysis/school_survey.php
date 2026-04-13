@@ -155,8 +155,13 @@ document.addEventListener('DOMContentLoaded', async function () {
             y: String(latToTile(center.lat, z))
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
-        if (!res.ok) return {count: 0, samples: []};
+        if (!res.ok) {
+            throw new Error('レイヤーAPIの取得に失敗しました: ' + def.apiId);
+        }
         const payload = await res.json();
+        if (payload && payload.success === false) {
+            throw new Error(payload.message || ('レイヤーAPIエラー: ' + def.apiId));
+        }
         const features = payload && payload.body && Array.isArray(payload.body.features) ? payload.body.features : [];
         return addFeatures(features, def.color, def.label, def.key);
     };
@@ -178,7 +183,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     map.on('load', async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
+            if (!txRes.ok) {
+                throw new Error('取引データAPIの取得に失敗しました。');
+            }
             const txGeo = await txRes.json();
+            if (txGeo && txGeo.error) {
+                throw new Error(txGeo.error);
+            }
             let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
             if (district) {
                 txFeatures = txFeatures.filter((f) => {

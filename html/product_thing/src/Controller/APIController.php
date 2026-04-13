@@ -387,7 +387,16 @@ class APIController extends AppController
 
         $apiId = (string)$this->request->getQuery('api_id');
         $allowedApiIds = [
+            'XKT001', // 都市計画区域/区域区分
+            'XKT002', // 用途地域
+            'XKT003', // 立地適正化計画
+            'XKT004', // 小学校区
+            'XKT005', // 中学校区
+            'XKT006', // 学校
+            'XKT007', // 保育園・幼稚園
             'XKT010', // 医療機関
+            'XKT011', // 福祉施設
+            'XKT013', // 将来推計人口
             'XKT029', // 土砂災害警戒区域
             'XKT019',
         ];
@@ -438,7 +447,13 @@ class APIController extends AppController
         }
 
         $data = isset($decoded['data']) && is_array($decoded['data']) ? $decoded['data'] : [];
-        $payload = ['success' => true, 'api_id' => $apiId, 'request_url' => $requestUrl, 'data' => $data];
+        $payload = [
+            'success' => true,
+            'api_id' => $apiId,
+            'request_url' => $requestUrl,
+            'body' => $decoded,
+            'data' => $data,
+        ];
         return $this->response->withType('application/json')->withStringBody(json_encode($payload, JSON_UNESCAPED_UNICODE));
     }
 
