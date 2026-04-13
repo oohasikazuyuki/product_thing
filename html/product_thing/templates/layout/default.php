@@ -20,14 +20,14 @@
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-success">
-<?= $this->Html->link('不動産取引情報システム', ['controller' => 'YourController', 'action' => 'selectAPI'], ['class' => 'navbar-brand']) ?>
+<?= $this->Html->link('不動産取引情報システム', '/price-search/select', ['class' => 'navbar-brand']) ?>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ml-auto">
             <li class="nav-item active">
-                <?= $this->Html->link('ホーム', ['controller' => 'API', 'action' => 'selectAPI'], ['class' => 'nav-link']) ?>
+                <?= $this->Html->link('ホーム', '/price-search/select', ['class' => 'nav-link']) ?>
             </li>
            
         </ul>
