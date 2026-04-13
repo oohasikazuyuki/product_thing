@@ -191,6 +191,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (txGeo && txGeo.error) {
                 throw new Error(txGeo.error);
             }
+            const txWarning = txGeo && txGeo.warning ? txGeo.warning : null;
             let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
             if (district) {
                 txFeatures = txFeatures.filter((f) => {
@@ -220,9 +221,15 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             });
 
-            if (layerErrors.length > 0) {
+            const warnings = [];
+            if (txWarning) {
+                warnings.push(txWarning);
+            }
+            warnings.push(...layerErrors);
+
+            if (warnings.length > 0) {
                 status.className = 'alert alert-warning mt-3 mb-0';
-                status.textContent = '一部レイヤーの取得に失敗しました: ' + layerErrors.join(' / ');
+                status.textContent = '一部データの取得に失敗しました: ' + warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
                 status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
