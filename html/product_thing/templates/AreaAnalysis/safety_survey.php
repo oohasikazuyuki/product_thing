@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const city = <?= json_encode($city, JSON_UNESCAPED_UNICODE) ?>;
     const year = <?= json_encode($year, JSON_UNESCAPED_UNICODE) ?>;
     const layerDataUrl = <?= json_encode($this->Url->build(['controller' => 'LayerData', 'action' => 'layerData'])) ?>;
-    const mlitGeoJsonUrl = <?= json_encode($this->Url->build('/api/mlit/geojson')) ?>;
+    const mlitGeoJsonUrl = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'])) ?>;
     const status = document.getElementById('status');
 
     const map = new maplibregl.Map({

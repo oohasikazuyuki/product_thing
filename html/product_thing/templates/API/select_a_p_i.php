@@ -11,14 +11,14 @@
     <h1 class="mb-4 text-center">条件選択画面</h1>
     <div class="mb-3 d-flex justify-content-between">
         <div>
-            <?= $this->Html->link('防災調査画面', '/analysis/safety', ['class' => 'btn btn-outline-danger btn-sm']) ?>
-            <?= $this->Html->link('学校調査画面', '/analysis/school', ['class' => 'btn btn-outline-primary btn-sm']) ?>
+            <?= $this->Html->link('防災調査画面', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'btn btn-outline-danger btn-sm']) ?>
+            <?= $this->Html->link('学校調査画面', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'btn btn-outline-primary btn-sm']) ?>
         </div>
         <div>
-            <?= $this->Html->link('API探索（別機能）', '/api-explorer', ['class' => 'btn btn-outline-info']) ?>
+            <?= $this->Html->link('API探索（別機能）', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer'], ['class' => 'btn btn-outline-info']) ?>
         </div>
     </div>
-    <?= $this->Form->create(null, ['url' => '/price-search/select', 'class' => 'needs-validation', 'novalidate' => true]) ?>
+    <?= $this->Form->create(null, ['url' => ['controller' => 'PriceSearch', 'action' => 'selectAPI'], 'class' => 'needs-validation', 'novalidate' => true]) ?>
     <div class="form-group">
         <?= $this->Form->control('prefecture', [
             'label' => ['text' => '都道府県', 'class' => 'form-label'],
