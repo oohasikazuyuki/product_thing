@@ -1,4 +1,4 @@
-<form method="get" action="<?= h($this->Url->build(['controller' => 'AreaAnalysis', 'action' => $targetAction])) ?>" class="card card-body mb-3">
+<form method="get" action="<?= h($this->Url->build(['controller' => 'AreaAnalysis', 'action' => $targetAction])) ?>" class="card card-body mb-3 analysis-filter-form">
     <div class="form-row align-items-end">
         <div class="col-md-3">
             <label class="small mb-1">都道府県</label>
@@ -38,3 +38,29 @@
         </div>
     </div>
 </form>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('.analysis-filter-form');
+    if (!form) return;
+    const areaSelect = form.querySelector('select[name="area"]');
+    const citySelect = form.querySelector('select[name="city"]');
+    const districtSelect = form.querySelector('select[name="district"]');
+
+    if (areaSelect) {
+        areaSelect.addEventListener('change', function () {
+            if (districtSelect) {
+                districtSelect.value = '';
+            }
+            form.submit();
+        });
+    }
+    if (citySelect) {
+        citySelect.addEventListener('change', function () {
+            if (districtSelect) {
+                districtSelect.value = '';
+            }
+            form.submit();
+        });
+    }
+});
+</script>
