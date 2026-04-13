@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (txGeo && txGeo.error) {
                 throw new Error(txGeo.error);
             }
+            const txWarning = txGeo && txGeo.warning ? txGeo.warning : null;
             let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
             if (district) {
                 txFeatures = txFeatures.filter((f) => {
@@ -133,10 +134,11 @@ document.addEventListener('DOMContentLoaded', async function () {
             const r2 = await fetchLayer('XKT002', '#2563eb', '用途地域');
             const r3 = await fetchLayer('XKT003', '#0ea5e9', '立地適正化計画');
             const layerErrors = [r1.error, r2.error, r3.error].filter(Boolean);
+            const warnings = txWarning ? [txWarning].concat(layerErrors) : layerErrors;
 
-            if (layerErrors.length > 0) {
+            if (warnings.length > 0) {
                 status.className = 'alert alert-warning mt-3 mb-0';
-                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + layerErrors.join(' / ');
+                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
                 status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件';

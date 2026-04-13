@@ -42,23 +42,35 @@ class MlitProxyController extends AppController
 
         $transactions = $client->get(self::TRANSACTIONS_PATH, $query, ['headers' => $headers]);
         $points = $client->get(self::TRANSACTION_POINTS_PATH, $query, ['headers' => $headers]);
-        if ($transactions->getStatusCode() >= 400 || $points->getStatusCode() >= 400) {
+        $transactionStatus = $transactions->getStatusCode();
+        $pointStatus = $points->getStatusCode();
+        if ($transactionStatus >= 400) {
             return $this->jsonResponse(
                 json_encode([
                     'type' => 'FeatureCollection',
                     'features' => [],
-                    'error' => 'Failed to fetch MLIT source data.',
+                    'error' => 'Failed to fetch transaction source data. status=' . $transactionStatus,
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 502
             );
         }
 
         $transactionData = $this->extractDataRows($transactions->getStringBody());
-        $pointData = $this->extractDataRows($points->getStringBody());
+        $pointData = [];
+        $warning = null;
+        if ($pointStatus < 400) {
+            $pointData = $this->extractDataRows($points->getStringBody());
+        } else {
+            $warning = 'Point source is unavailable. status=' . $pointStatus;
+        }
+
         $featureCollection = [
             'type' => 'FeatureCollection',
             'features' => $this->buildFeatures($transactionData, $pointData),
         ];
+        if ($warning !== null) {
+            $featureCollection['warning'] = $warning;
+        }
 
         return $this->jsonResponse(json_encode($featureCollection, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
