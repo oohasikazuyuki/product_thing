@@ -19,6 +19,7 @@
         <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
         <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
     </div>
+    <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year]) ?>
     <div id="map"></div>
     <div id="status" class="alert alert-secondary mt-3 mb-0">読み込み中...</div>
 </div>
