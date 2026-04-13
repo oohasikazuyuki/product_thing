@@ -99,14 +99,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
         if (!res.ok) {
-            throw new Error('レイヤーAPIの取得に失敗しました: ' + apiId);
+            return {count: 0, error: 'レイヤーAPIの取得に失敗しました: ' + apiId};
         }
         const payload = await res.json();
         if (payload && payload.success === false) {
-            throw new Error(payload.message || ('レイヤーAPIエラー: ' + apiId));
+            return {count: 0, error: (payload.message || ('レイヤーAPIエラー: ' + apiId))};
         }
         const features = payload && payload.body && Array.isArray(payload.body.features) ? payload.body.features : [];
-        return addFeatures(features, color, label);
+        return {count: addFeatures(features, color, label), error: null};
     };
 
     map.on('load', async function () {
@@ -129,15 +129,21 @@ document.addEventListener('DOMContentLoaded', async function () {
             const txCount = addFeatures(txFeatures, '#16a34a', '取引価格');
             fitMapToFeatures(txFeatures);
 
-            const c1 = await fetchLayer('XKT001', '#4b5563', '都市計画区域');
-            const c2 = await fetchLayer('XKT002', '#2563eb', '用途地域');
-            const c3 = await fetchLayer('XKT003', '#0ea5e9', '立地適正化計画');
+            const r1 = await fetchLayer('XKT001', '#4b5563', '都市計画区域');
+            const r2 = await fetchLayer('XKT002', '#2563eb', '用途地域');
+            const r3 = await fetchLayer('XKT003', '#0ea5e9', '立地適正化計画');
+            const layerErrors = [r1.error, r2.error, r3.error].filter(Boolean);
 
-            status.className = 'alert alert-success mt-3 mb-0';
-            status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + c1 + '件 / 用途地域: ' + c2 + '件 / 立地適正化: ' + c3 + '件';
+            if (layerErrors.length > 0) {
+                status.className = 'alert alert-warning mt-3 mb-0';
+                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + layerErrors.join(' / ');
+            } else {
+                status.className = 'alert alert-success mt-3 mb-0';
+                status.textContent = '取引価格: ' + txCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件';
+            }
         } catch (e) {
             status.className = 'alert alert-danger mt-3 mb-0';
-            status.textContent = 'データ取得に失敗しました。';
+            status.textContent = e && e.message ? ('データ取得に失敗しました: ' + e.message) : 'データ取得に失敗しました。';
         }
     });
 });
