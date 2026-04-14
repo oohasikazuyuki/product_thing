@@ -63,7 +63,7 @@ class MlitProxyController extends AppController
         } else {
             $pointBody = $this->decodeJsonBody($points->getStringBody());
             $pointMessage = is_array($pointBody) && isset($pointBody['message']) ? (string)$pointBody['message'] : '';
-            $warning = 'Point source is unavailable. status=' . $pointStatus . ($pointMessage !== '' ? (' message=' . $pointMessage) : '');
+            $warning = '取引ポイントAPIを利用できないため、住所ジオコーディングで補完表示しています。status=' . $pointStatus . ($pointMessage !== '' ? (' message=' . $pointMessage) : '');
         }
 
         $featureCollection = [

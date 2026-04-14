@@ -142,8 +142,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             if (warnings.length > 0) {
-                status.className = 'alert alert-warning mt-3 mb-0';
-                status.textContent = '取引価格: ' + displayTxCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / 一部取得失敗: ' + warnings.join(' / ');
+                const isFallbackOnly = warnings.length === 1 && txWarning && layerErrors.length === 0 && txWarning.indexOf('住所ジオコーディングで補完表示しています') !== -1;
+                status.className = (isFallbackOnly ? 'alert alert-info' : 'alert alert-warning') + ' mt-3 mb-0';
+                status.textContent = '取引価格: ' + displayTxCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件 / ' + (isFallbackOnly ? '補完表示中: ' : '一部取得失敗: ') + warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
                 status.textContent = '取引価格: ' + displayTxCount + '件 / 都市計画: ' + r1.count + '件 / 用途地域: ' + r2.count + '件 / 立地適正化: ' + r3.count + '件';
