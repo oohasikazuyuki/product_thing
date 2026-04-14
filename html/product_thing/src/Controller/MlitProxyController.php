@@ -185,12 +185,28 @@ class MlitProxyController extends AppController
     private function buildFeatures(array $transactions, array $points): array
     {
         $features = [];
+        $geocodeCache = [];
+        $geocodeCount = 0;
+        $maxGeocodeRequests = 120;
         foreach ($transactions as $index => $row) {
-            if (!isset($points[$index]) || !is_array($points[$index])) {
-                continue;
+            $coordinates = null;
+            if (isset($points[$index]) && is_array($points[$index])) {
+                $coordinates = $this->extractCoordinates($points[$index]);
             }
 
-            $coordinates = $this->extractCoordinates($points[$index]);
+            if ($coordinates === null) {
+                $address = $this->buildAddressForGeocoding($row);
+                if ($address !== null) {
+                    if (!array_key_exists($address, $geocodeCache) && $geocodeCount < $maxGeocodeRequests) {
+                        $geocodeCache[$address] = $this->geocodeAddress($address);
+                        $geocodeCount += 1;
+                    }
+                    if (array_key_exists($address, $geocodeCache) && is_array($geocodeCache[$address])) {
+                        $coordinates = $geocodeCache[$address];
+                    }
+                }
+            }
+
             if ($coordinates === null) {
                 continue;
             }
@@ -206,6 +222,58 @@ class MlitProxyController extends AppController
         }
 
         return $features;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function buildAddressForGeocoding(array $row): ?string
+    {
+        $prefecture = isset($row['Prefecture']) ? trim((string)$row['Prefecture']) : '';
+        $municipality = isset($row['Municipality']) ? trim((string)$row['Municipality']) : '';
+        $district = isset($row['DistrictName']) ? trim((string)$row['DistrictName']) : '';
+        $address = trim($prefecture . $municipality . $district);
+        if ($address === '') {
+            return null;
+        }
+
+        return $address;
+    }
+
+    /**
+     * @return array<int, float>|null
+     */
+    private function geocodeAddress(string $address): ?array
+    {
+        $client = new Client(['timeout' => 8]);
+        $response = $client->get('https://msearch.gsi.go.jp/address-search/AddressSearch', [
+            'q' => $address,
+        ], [
+            'headers' => [
+                'Accept' => 'application/json',
+            ],
+        ]);
+        if ($response->getStatusCode() >= 400) {
+            return null;
+        }
+
+        $decoded = json_decode($response->getStringBody(), true);
+        if (!is_array($decoded) || !isset($decoded[0]['geometry']['coordinates']) || !is_array($decoded[0]['geometry']['coordinates'])) {
+            return null;
+        }
+
+        $coordinates = $decoded[0]['geometry']['coordinates'];
+        if (count($coordinates) < 2) {
+            return null;
+        }
+
+        $longitude = (float)$coordinates[0];
+        $latitude = (float)$coordinates[1];
+        if (!is_finite($longitude) || !is_finite($latitude)) {
+            return null;
+        }
+
+        return [$longitude, $latitude];
     }
 
     /**
