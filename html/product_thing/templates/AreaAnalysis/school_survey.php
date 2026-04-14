@@ -233,8 +233,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             warnings.push(...layerErrors);
 
             if (warnings.length > 0) {
-                status.className = 'alert alert-warning mt-3 mb-0';
-                status.textContent = '一部データの取得に失敗しました: ' + warnings.join(' / ');
+                const isFallbackOnly = warnings.length === 1 && txWarning && layerErrors.length === 0 && txWarning.indexOf('住所ジオコーディングで補完表示しています') !== -1;
+                status.className = (isFallbackOnly ? 'alert alert-info' : 'alert alert-warning') + ' mt-3 mb-0';
+                status.textContent = (isFallbackOnly ? '補完表示中: ' : '一部データの取得に失敗しました: ') + warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
                 status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
