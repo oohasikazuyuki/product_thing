@@ -1,19 +1,9 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>不動産情報ライブラリ API探索</title>
-    <?= $this->Html->css('https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css') ?>
-</head>
-<body>
-<div class="container mt-5 mb-5">
-    <h1 class="mb-3">不動産情報ライブラリ API探索（別機能）</h1>
-    <p class="text-muted">デベロッパー向けに、全API IDを選んで実行URL・cURL・JSONレスポンスを確認できます。</p>
-
-    <div class="mb-3">
-        <?= $this->Html->link('価格情報画面に戻る', '/price-search/select', ['class' => 'btn btn-outline-secondary']) ?>
-    </div>
+<?php $this->assign('title', 'API Explorer'); ?>
+<div class="page-header">
+    <h1>API Explorer</h1>
+    <p>デベロッパー向けに、API IDを選んで実行URL・cURL・JSONレスポンスを確認できます。</p>
+</div>
+<div>
 
     <?php if (!empty($errorMessage)): ?>
         <div class="alert alert-danger"><?= h($errorMessage) ?></div>
@@ -94,5 +84,3 @@
         </table>
     </div>
 </div>
-</body>
-</html>

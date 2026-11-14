@@ -1,30 +1,22 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学校・生活調査</title>
-    <?= $this->Html->css('https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css') ?>
-    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        #map { height: 520px; border-radius: 8px; }
+<?php $this->assign('title', '学校・生活調査'); ?>
+<?php $this->start('css'); ?>
+<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
+<style>
         #surveyList { max-height: 260px; overflow: auto; }
-    </style>
-</head>
-<body>
-<div class="container mt-4 mb-4">
-    <h1 class="h4">学校・生活調査画面</h1>
-    <p class="text-muted mb-2">取引価格に加えて、学校区・学校・保育園・医療/福祉施設を重ねて確認できます。</p>
-    <p class="small text-muted">出典：不動産情報ライブラリ（国土交通省）</p>
+</style>
+<?php $this->end(); ?>
+    <div class="page-header">
+        <h1>学校・生活調査</h1>
+        <p>取引価格に加えて、学校区・学校・保育園・医療/福祉施設を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
+    </div>
     <div class="mb-3">
-        <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
         <?= $this->Html->link('防災調査へ', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'schoolSurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div class="row">
         <div class="col-lg-8">
-            <div id="map"></div>
-            <div id="status" class="alert alert-secondary mt-3 mb-0">読み込み中...</div>
+            <div id="map" class="map-canvas"></div>
+            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です…</div>
         </div>
         <div class="col-lg-4">
             <div class="card mb-3">
@@ -54,8 +46,7 @@
             </div>
         </div>
     </div>
-</div>
-
+<?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
@@ -247,5 +238,4 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 });
 </script>
-</body>
-</html>
+<?php $this->end(); ?>

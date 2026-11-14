@@ -1,29 +1,18 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>防災・規制調査</title>
-    <?= $this->Html->css('https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css') ?>
-    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        #map { height: 520px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-<div class="container mt-4 mb-4">
-    <h1 class="h4">防災・規制調査画面</h1>
-    <p class="text-muted mb-2">取引価格に加えて、都市計画・用途地域・立地適正化計画を重ねて確認できます。</p>
-    <p class="small text-muted">出典：不動産情報ライブラリ（国土交通省）</p>
+<?php $this->assign('title', '防災・規制調査'); ?>
+<?php $this->start('css'); ?>
+<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
+<?php $this->end(); ?>
+    <div class="page-header">
+        <h1>防災・規制調査</h1>
+        <p>取引価格に加えて、都市計画・用途地域・立地適正化計画を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
+    </div>
     <div class="mb-3">
-        <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
         <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
-    <div id="map"></div>
-    <div id="status" class="alert alert-secondary mt-3 mb-0">読み込み中...</div>
-</div>
-
+    <div id="map" class="map-canvas"></div>
+    <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です…</div>
+<?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
@@ -156,5 +145,4 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 });
 </script>
-</body>
-</html>
+<?php $this->end(); ?>

@@ -1,4 +1,4 @@
-<form method="get" action="<?= h($this->Url->build(['controller' => 'AreaAnalysis', 'action' => $targetAction])) ?>" class="card card-body mb-3 analysis-filter-form">
+<form method="get" aria-label="調査条件" action="<?= h($this->Url->build(['controller' => 'AreaAnalysis', 'action' => $targetAction])) ?>" class="card card-body mb-3 analysis-filter-form">
     <div class="form-row align-items-end">
         <div class="col-md-3">
             <label class="small mb-1">都道府県</label>
@@ -34,7 +34,7 @@
             </select>
         </div>
         <div class="col-md-12 mt-2">
-            <button type="submit" class="btn btn-sm btn-success btn-block">調査実行</button>
+            <button type="submit" class="btn btn-success btn-block">この条件で調査する</button>
         </div>
     </div>
 </form>
