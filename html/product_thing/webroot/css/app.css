@@ -7,3 +7,4 @@
 .map-canvas { width: 100%; height: 520px; border-radius: 8px; }
 @media (max-width: 575.98px) { .map-canvas { height: 360px; } }
 .mode-btn.is-active { font-weight: 700; }
+.row-clickable { cursor: pointer; }
