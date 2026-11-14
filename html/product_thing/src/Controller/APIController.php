@@ -116,9 +116,8 @@ class APIController extends AppController
 
         $response = false;
         if (!empty($prefectureCode)) {
-            $response = file_get_contents(
-                $base_url . http_build_query($query), false, $context
-            );
+            $mlit = \App\Service\MlitApi::get('XIT002', $query);
+            $response = $mlit['status'] === 0 ? false : $mlit['body'];
         }
 
         $decode_response = [];
@@ -204,7 +203,8 @@ class APIController extends AppController
             return is_array($json) ? $json : null;
         };
 
-        $response = file_get_contents($base_url . http_build_query($query), false, $context);
+        $mlit = \App\Service\MlitApi::get('XIT001', $query);
+        $response = $mlit['status'] === 0 ? false : $mlit['body'];
         if ($response === false) {
             error_log('APIからのデータ取得に失敗しました。');
             throw new \Exception("APIからのデータ取得に失敗しました。");
@@ -215,44 +215,10 @@ class APIController extends AppController
             $data = [];
         }
 
+        // 取引APIには座標が無い(XPT001は地図タイル指定専用)ため、地区名から座標を付ける（結果は30日キャッシュ）
         if (isset($data['data']) && is_array($data['data'])) {
-            $pointBaseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XPT001?';
-            $pointResponse = file_get_contents($pointBaseUrl . http_build_query($query), false, $context);
-            $pointData = $decodeResponse($pointResponse);
-
-            if (is_array($pointData) && isset($pointData['data']) && is_array($pointData['data'])) {
-                $pointRows = array_values($pointData['data']);
-                $extractCoordinateValue = function (array $row, array $keys) {
-                    foreach ($keys as $key) {
-                        if (isset($row[$key]) && $row[$key] !== '') {
-                            return $row[$key];
-                        }
-                    }
-
-                    return null;
-                };
-
-                $longitudeKeys = ['Longitude', 'longitude', 'lng', 'Lon', 'LON', 'x'];
-                $latitudeKeys = ['Latitude', 'latitude', 'lat', 'Lat', 'LAT', 'y'];
-
-                foreach ($data['data'] as $index => &$record) {
-                    if (!is_array($record) || !isset($pointRows[$index]) || !is_array($pointRows[$index])) {
-                        continue;
-                    }
-
-                    $pointRecord = $pointRows[$index];
-                    $longitude = $extractCoordinateValue($pointRecord, $longitudeKeys);
-                    $latitude = $extractCoordinateValue($pointRecord, $latitudeKeys);
-
-                    if ($longitude !== null && $latitude !== null) {
-                        $record['Longitude'] = $longitude;
-                        $record['Latitude'] = $latitude;
-                    }
-                }
-                unset($record);
-            }
+            $data['data'] = \App\Service\Geocoder::attach($data['data']);
         }
-
 
         if (!is_array($data)) {
             $data = [];

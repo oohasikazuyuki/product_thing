@@ -113,22 +113,8 @@ class AreaAnalysisController extends AppController
             return trim((string)$value) !== '';
         });
 
-        $header = [
-            'Content-Type: application/x-www-form-urlencoded',
-            'Context-Length: ' . 20,
-            'Ocp-Apim-Subscription-Key: ' . $apiKey,
-        ];
-        $content = [
-            'http' => [
-                'method' => 'GET',
-                'header' => implode("\r\n", $header),
-                'content' => '',
-                'ignore_errors' => true,
-            ],
-        ];
-        $context = stream_context_create($content);
-        $baseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/' . $apiId . '?';
-        $response = file_get_contents($baseUrl . http_build_query($query), false, $context);
+        $result = \App\Service\MlitApi::get($apiId, $query);
+        $response = $result['status'] === 0 ? false : $result['body'];
         if ($response === false) {
             return [];
         }

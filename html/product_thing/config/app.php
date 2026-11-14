@@ -102,6 +102,14 @@ return [
             'url' => env('CACHE_DEFAULT_URL', null),
         ],
 
+        // 住所→座標の変換結果（App\Service\Geocoder）。地区の位置はほぼ変わらないので長く持つ
+        'geocode' => [
+            'className' => FileEngine::class,
+            'prefix' => 'geocode_',
+            'path' => CACHE . 'geocode' . DS,
+            'duration' => '+30 days',
+        ],
+
         /*
          * Configure the cache used for general framework caching.
          * Translation cache files are stored with this configuration.
