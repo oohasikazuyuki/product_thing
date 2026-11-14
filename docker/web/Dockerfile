@@ -13,3 +13,11 @@ RUN apt-get update \
   && a2enmod rewrite
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
+
+# ドキュメントルートを CakePHP の webroot に向ける（http://localhost:<WEB_PORT>/ で直接表示）
+ENV APACHE_DOCUMENT_ROOT /var/www/html/product_thing/webroot
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+  && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+COPY cake-override.conf /etc/apache2/conf-available/cake-override.conf
+RUN a2enconf cake-override
