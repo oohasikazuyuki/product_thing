@@ -71,6 +71,41 @@ class MlitProxyController extends AppController
     }
 
     /**
+     * 都道府県内の市区町村一覧（XIT002）。賃貸検索の市区町村セレクト用。
+     */
+    public function cities()
+    {
+        $this->request->allowMethod(['get']);
+        $prefecture = (string)$this->request->getQuery('prefecture', '');
+        $year = (string)$this->request->getQuery('year', '2024');
+        if (!preg_match('/^\d{2}$/', $prefecture)) {
+            return $this->citiesResponse(['ok' => false, 'cities' => [], 'message' => '都道府県コードが不正です。'], 400);
+        }
+
+        $result = MlitApi::get('XIT002', ['area' => $prefecture, 'year' => preg_match('/^\d{4}$/', $year) ? $year : '2024']);
+        $decoded = $result['status'] === 200 ? $this->decodeJsonBody($result['body']) : null;
+        $cities = [];
+        foreach (($decoded['data'] ?? []) as $row) {
+            if (is_array($row) && !empty($row['id']) && !empty($row['name'])) {
+                $cities[] = ['id' => (string)$row['id'], 'name' => (string)$row['name']];
+            }
+        }
+        if ($cities === []) {
+            return $this->citiesResponse(['ok' => false, 'cities' => [], 'message' => '市区町村を取得できませんでした。'], 502);
+        }
+
+        return $this->citiesResponse(['ok' => true, 'cities' => $cities]);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function citiesResponse(array $payload, int $status = 200)
+    {
+        return $this->jsonResponse(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $status);
+    }
+
+    /**
      * @return array<string, string>
      */
     private function buildQueryParams(): array

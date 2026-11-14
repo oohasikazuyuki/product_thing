@@ -61,11 +61,14 @@
     <div class="col-lg-10">
         <h2 class="h6 text-muted mb-3">そのほかの調査</h2>
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <?= $this->Html->link('<h2>防災・規制調査</h2><p>都市計画・用途地域・災害リスクを地図に重ねて確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <?= $this->Html->link('<h2>学校・生活調査</h2><p>学校区・保育園・医療施設など暮らしの環境を確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+            </div>
+            <div class="col-md-4 mb-3">
+                <?= $this->Html->link('<h2>賃貸検索</h2><p>エリアと賃料から、賃貸物件を地図と一覧で探す</p>', ['controller' => 'RentalSearch', 'action' => 'index'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
         </div>
     </div>

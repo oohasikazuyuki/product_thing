@@ -83,6 +83,11 @@ return function (RouteBuilder $routes): void {
         // MLIT proxy URLs
         $builder->connect('/api/mlit/transactions', ['controller' => 'MlitProxy', 'action' => 'transactions']);
         $builder->connect('/api/mlit/geojson', ['controller' => 'MlitProxy', 'action' => 'geojson']);
+        $builder->connect('/api/mlit/cities', ['controller' => 'MlitProxy', 'action' => 'cities']);
+
+        // 賃貸検索（民間賃貸API。鍵が無い場合はデモデータ）
+        $builder->connect('/rentals', ['controller' => 'RentalSearch', 'action' => 'index']);
+        $builder->connect('/api/rentals/search', ['controller' => 'RentalSearch', 'action' => 'search']);
         $builder->connect(
             '/api/displayPrice/**',
             ['controller' => 'PriceSearch', 'action' => 'displayPrice'],

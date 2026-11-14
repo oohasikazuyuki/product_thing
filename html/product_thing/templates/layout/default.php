@@ -4,6 +4,7 @@ $action = $this->request->getParam('action');
 $isActive = fn(string $c, ?string $a = null) => $controller === $c && ($a === null || $action === $a);
 $navItems = [
     ['取引価格検索', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], in_array($controller, ['PriceSearch', 'API'], true)],
+    ['賃貸検索', ['controller' => 'RentalSearch', 'action' => 'index'], $isActive('RentalSearch')],
     ['防災・規制調査', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], $isActive('AreaAnalysis', 'safetySurvey')],
     ['学校・生活調査', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], $isActive('AreaAnalysis', 'schoolSurvey')],
     ['API Explorer', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer'], $isActive('ApiExplorer')],
