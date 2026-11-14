@@ -88,6 +88,7 @@ return function (RouteBuilder $routes): void {
         // 賃貸検索（民間賃貸API。鍵が無い場合はデモデータ）
         $builder->connect('/rentals', ['controller' => 'RentalSearch', 'action' => 'index']);
         $builder->connect('/api/rentals/search', ['controller' => 'RentalSearch', 'action' => 'search']);
+        $builder->connect('/api/rentals/route', ['controller' => 'RentalSearch', 'action' => 'route']);
         $builder->connect(
             '/api/displayPrice/**',
             ['controller' => 'PriceSearch', 'action' => 'displayPrice'],

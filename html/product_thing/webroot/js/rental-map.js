@@ -9,6 +9,8 @@
     let markersById = {};
     let currentPage = 1;
     let plottedCount = 0;
+    let itemsById = {};
+    let stationMarker = null;
     const PER_PAGE = 20;
     let mapReady = false;
 
@@ -139,6 +141,70 @@
         map.jumpTo({ center: defaultCenter, zoom: defaultZoom });
     };
 
+    const clearRoute = function () {
+        if (stationMarker) {
+            stationMarker.remove();
+            stationMarker = null;
+        }
+        if (map && mapReady && map.getSource('walk-route')) {
+            map.getSource('walk-route').setData({ type: 'FeatureCollection', features: [] });
+        }
+    };
+
+    const drawRoute = function (route) {
+        const geojson = { type: 'Feature', geometry: { type: 'LineString', coordinates: route.line } };
+        if (map.getSource('walk-route')) {
+            map.getSource('walk-route').setData(geojson);
+        } else {
+            map.addSource('walk-route', { type: 'geojson', data: geojson });
+            map.addLayer({
+                id: 'walk-route-line', type: 'line', source: 'walk-route',
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.85 }
+            });
+        }
+        if (stationMarker) {
+            stationMarker.remove();
+        }
+        stationMarker = new maplibregl.Marker({ color: '#2563eb' })
+            .setLngLat([route.station.lng, route.station.lat])
+            .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setText(route.station.name))
+            .addTo(map);
+        const bounds = new maplibregl.LngLatBounds(route.line[0], route.line[0]);
+        route.line.forEach(function (c) { bounds.extend(c); });
+        map.fitBounds(bounds, { padding: 80, maxZoom: 17, essential: true });
+    };
+
+    // 駅から物件までの徒歩ルートを地図に表示（取得できない場合はGoogleマップを開く）
+    const showRoute = async function (item) {
+        if (!item || !item.station) {
+            return;
+        }
+        const lat = Number(item.lat);
+        const lng = Number(item.lng);
+        if (!isJapanCoordinate(lat, lng) || !config.routeEndpoint) {
+            window.open(routeUrl(item), '_blank', 'noopener');
+            return;
+        }
+        activateItem(item.id, false);
+        setStatus('駅からの道のりを計算中…');
+        try {
+            const params = new URLSearchParams({ station: item.station, lat: String(lat), lng: String(lng) });
+            const response = await fetch(config.routeEndpoint + '?' + params.toString(), { headers: { Accept: 'application/json' } });
+            const route = await response.json();
+            if (!route.ok) {
+                setStatus((route.message || '駅からの道のりを取得できませんでした。') + ' Googleマップで開きます。');
+                window.open(routeUrl(item), '_blank', 'noopener');
+                return;
+            }
+            drawRoute(route);
+            setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
+                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路は地図データによる目安です');
+        } catch (error) {
+            setStatus('駅からの道のりの取得中にエラーが発生しました。');
+        }
+    };
+
     // 駅→物件の徒歩ルートをGoogleマップで開くURL（駅名が無い物件はnull）
     const routeUrl = function (item) {
         if (!item.station) {
@@ -162,7 +228,8 @@
             escapeHtml(item.layout || 'N/A') +
             (item.station ? ' · ' + escapeHtml(item.station) : '') +
             (item.walk_minutes ? ' 徒歩' + escapeHtml(item.walk_minutes) + '分' : '') +
-            (routeUrl(item) ? '<br><a href="' + escapeHtml(routeUrl(item)) + '" target="_blank" rel="noopener">駅からの道のりを見る</a>' : '') +
+            (item.station ? '<br><button type="button" class="btn btn-link btn-sm p-0" data-route-id="' + escapeHtml(item.id) + '">駅からの道のりを地図に表示</button>' +
+                ' <a class="small" href="' + escapeHtml(routeUrl(item)) + '" target="_blank" rel="noopener">Googleマップ</a>' : '') +
             '</div>';
     };
 
@@ -171,6 +238,7 @@
             return;
         }
         clearMarkers();
+        clearRoute();
         const plotted = [];
         plottedCount = 0;
         (items || []).forEach(function (item) {
@@ -228,6 +296,8 @@
         const root = document.getElementById('rentalResults');
         root.innerHTML = '';
         const items = Array.isArray(payload.items) ? payload.items : [];
+        itemsById = {};
+        items.forEach(function (item) { itemsById[item.id] = item; });
         if (items.length === 0) {
             root.innerHTML = '<div class="listing-empty">該当する物件がありません。条件を広げて再検索してください。</div>';
             setResultCount('0 件');
@@ -275,7 +345,7 @@
                     ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
                     : '') +
                 (routeUrl(item)
-                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-route="' + escapeHtml(routeUrl(item)) + '">駅からの道のり</button>'
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-route-id="' + escapeHtml(item.id) + '">駅からの道のり</button>'
                     : '') +
                 '</div>' +
                 '</div>';
@@ -409,12 +479,20 @@
             }
         });
 
+        // 地図のポップアップ内ボタン（動的に作られるのでdocumentで受ける）
+        document.addEventListener('click', function (event) {
+            const route = event.target.closest('.maplibregl-popup [data-route-id]');
+            if (route) {
+                showRoute(itemsById[route.dataset.routeId]);
+            }
+        });
+
         document.getElementById('rentalResults').addEventListener('click', function (event) {
-            const route = event.target.closest('[data-route]');
+            const route = event.target.closest('[data-route-id]');
             if (route) {
                 event.preventDefault();
                 event.stopPropagation();
-                window.open(route.dataset.route, '_blank', 'noopener');
+                showRoute(itemsById[route.dataset.routeId]);
                 return;
             }
             const locate = event.target.closest('[data-locate]');
