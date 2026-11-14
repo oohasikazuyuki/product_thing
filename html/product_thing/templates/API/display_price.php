@@ -60,6 +60,14 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
         </div>
     </div>
     <div class="col-lg-9 mb-3">
+        <div class="d-flex flex-wrap align-items-center mb-2">
+            <div class="btn-group btn-group-sm mr-2 mb-1" role="group" aria-label="地図の種類">
+                <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
+                <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
+            </div>
+            <button type="button" id="streetViewBtn" class="btn btn-sm btn-outline-secondary mb-1" aria-pressed="false">ストリートビュー（地図をクリック）</button>
+            <small class="text-muted ml-2 mb-1">表の行をクリックすると、その場所を航空写真で拡大します</small>
+        </div>
         <div id="map" class="map-canvas" aria-label="不動産データの地図"></div>
         <div id="mapStatus" class="alert alert-secondary mt-3 mb-0" role="status">地図を準備中です。</div>
     </div>
@@ -87,9 +95,10 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
             </tr>
             </thead>
             <tbody>
+            <?php $rowIndex = 0; ?>
             <?php foreach ($data as $record): ?>
                 <?php if (is_array($record)): ?>
-                    <tr>
+                    <tr class="row-clickable" data-index="<?= $rowIndex++ ?>" tabindex="0" title="クリックで航空写真に拡大">
                         <td><?= $cell($record['Type'] ?? null) ?><div class="small text-muted"><?= $cell($record['PriceCategory'] ?? null) ?></div></td>
                         <td class="d-none d-xl-table-cell"><?= $cell($record['Prefecture'] ?? null) ?></td>
                         <td><?= $cell($record['Municipality'] ?? null) ?> <?= h($record['DistrictName'] ?? '') ?>
@@ -111,6 +120,21 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
 <?php else: ?>
     <div class="alert alert-warning text-center">条件に合うデータがありません。条件を変更してお試しください。</div>
 <?php endif; ?>
+
+<div class="modal fade" id="streetViewModal" tabindex="-1" role="dialog" aria-labelledby="streetViewTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="streetViewTitle">ストリートビュー</h2>
+                <a id="streetViewExternal" class="ml-auto mr-3 small" href="#" target="_blank" rel="noopener">新しいタブで開く</a>
+                <button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="streetViewFrame" title="ストリートビュー" style="width:100%;height:70vh;border:0" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php $this->start('css'); ?>
 <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
@@ -141,6 +165,7 @@ if (!empty($data) && is_array($data)) {
         const geoJsonEndpoint = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
         let records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const tableRecords = records.slice();
         const pageQuery = new URLSearchParams(window.location.search);
         const layerControls = document.getElementById('layerControls');
         const modeButtons = document.querySelectorAll('.mode-btn');
@@ -367,6 +392,7 @@ if (!empty($data) && is_array($data)) {
 
         const mapAdapter = (function () {
             if (useGoogleMaps) {
+                let focusMarker = null;
                 const googleMap = new google.maps.Map(document.getElementById('map'), {
                     center: {lat: defaultCenter[1], lng: defaultCenter[0]},
                     zoom: defaultZoom,
@@ -431,10 +457,32 @@ if (!empty($data) && is_array($data)) {
                             bounds.extend({lat: coordinate[1], lng: coordinate[0]});
                         });
                         googleMap.fitBounds(bounds);
+                    },
+                    setAerial: function (on) {
+                        googleMap.setMapTypeId(on ? 'hybrid' : 'roadmap');
+                    },
+                    focus: function (coordinates, popupHtml) {
+                        if (focusMarker) {
+                            focusMarker.setMap(null);
+                        }
+                        const position = {lat: coordinates[1], lng: coordinates[0]};
+                        focusMarker = new google.maps.Marker({map: googleMap, position: position});
+                        googleMap.setCenter(position);
+                        googleMap.setZoom(18);
+                        new google.maps.InfoWindow({content: popupHtml}).open({anchor: focusMarker, map: googleMap, shouldFocus: false});
+                    },
+                    onMapClick: function (callback) {
+                        googleMap.addListener('click', function (event) {
+                            callback([event.latLng.lng(), event.latLng.lat()]);
+                        });
+                    },
+                    setPickCursor: function (on) {
+                        googleMap.setOptions({draggableCursor: on ? 'crosshair' : null});
                     }
                 };
             }
 
+            let focusMarker = null;
             const maplibreMap = new maplibregl.Map({
                 container: 'map',
                 style: {
@@ -445,6 +493,13 @@ if (!empty($data) && is_array($data)) {
                             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
                             tileSize: 256,
                             attribution: '&copy; OpenStreetMap contributors'
+                        },
+                        aerial: {
+                            type: 'raster',
+                            tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'],
+                            tileSize: 256,
+                            maxzoom: 18,
+                            attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院 シームレス空中写真</a>'
                         }
                     },
                     layers: [
@@ -452,6 +507,12 @@ if (!empty($data) && is_array($data)) {
                             id: 'osm',
                             type: 'raster',
                             source: 'osm'
+                        },
+                        {
+                            id: 'aerial',
+                            type: 'raster',
+                            source: 'aerial',
+                            layout: {visibility: 'none'}
                         }
                     ]
                 },
@@ -501,6 +562,28 @@ if (!empty($data) && is_array($data)) {
                         padding: 40,
                         maxZoom: 13
                     });
+                },
+                setAerial: function (on) {
+                    maplibreMap.setLayoutProperty('aerial', 'visibility', on ? 'visible' : 'none');
+                },
+                focus: function (coordinates, popupHtml) {
+                    if (focusMarker) {
+                        focusMarker.remove();
+                    }
+                    focusMarker = new maplibregl.Marker({color: '#e11d48'})
+                        .setLngLat(coordinates)
+                        .setPopup(new maplibregl.Popup({offset: 25}).setHTML(popupHtml))
+                        .addTo(maplibreMap);
+                    maplibreMap.flyTo({center: coordinates, zoom: 17});
+                    focusMarker.togglePopup();
+                },
+                onMapClick: function (callback) {
+                    maplibreMap.on('click', function (event) {
+                        callback([event.lngLat.lng, event.lngLat.lat]);
+                    });
+                },
+                setPickCursor: function (on) {
+                    maplibreMap.getCanvas().style.cursor = on ? 'crosshair' : '';
                 }
             };
         })();
@@ -708,6 +791,108 @@ if (!empty($data) && is_array($data)) {
                         setMapStatus('地図移動後の再取得に失敗しました。', 'warning');
                     });
                 }, 700);
+            });
+        });
+
+        const streetViewUrl = function (coordinates) {
+            return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + coordinates[1] + ',' + coordinates[0];
+        };
+
+        // ストリートビューはモーダル内に埋め込む（キーがあれば公式Embed API、無ければキー不要の埋め込みURL）
+        const embedStreetViewUrl = function (coordinates) {
+            const location = coordinates[1] + ',' + coordinates[0];
+            if (googleMapsApiKey) {
+                return 'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(googleMapsApiKey) + '&location=' + location;
+            }
+            return 'https://maps.google.com/maps?layer=c&cbll=' + location + '&cbp=11,0,0,0,0&output=svembed';
+        };
+        const openStreetView = function (coordinates) {
+            document.getElementById('streetViewFrame').src = embedStreetViewUrl(coordinates);
+            document.getElementById('streetViewExternal').href = streetViewUrl(coordinates);
+            $('#streetViewModal').modal('show');
+        };
+        $('#streetViewModal').on('hidden.bs.modal', function () {
+            document.getElementById('streetViewFrame').src = 'about:blank';
+        });
+        document.addEventListener('click', function (event) {
+            const link = event.target.closest('[data-streetview]');
+            if (link) {
+                event.preventDefault();
+                openStreetView(link.dataset.streetview.split(',').map(Number));
+            }
+        });
+
+        const basemapButtons = document.querySelectorAll('[data-basemap]');
+        const setBasemap = function (name) {
+            mapAdapter.setAerial(name === 'aerial');
+            basemapButtons.forEach(function (button) {
+                button.classList.toggle('active', button.dataset.basemap === name);
+            });
+        };
+        basemapButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                setBasemap(button.dataset.basemap);
+            });
+        });
+
+        // ストリートビュー: ボタンを押してから地図をクリックすると、その地点をGoogleストリートビューで開く
+        const streetViewBtn = document.getElementById('streetViewBtn');
+        let picking = false;
+        const setPicking = function (on) {
+            picking = on;
+            streetViewBtn.classList.toggle('active', on);
+            streetViewBtn.setAttribute('aria-pressed', String(on));
+            mapAdapter.setPickCursor(on);
+            if (on) {
+                setMapStatus('ストリートビューで見たい場所を地図上でクリックしてください。', 'info');
+            }
+        };
+        streetViewBtn.addEventListener('click', function () {
+            setPicking(!picking);
+        });
+        mapAdapter.onMapClick(function (coordinates) {
+            if (!picking) {
+                return;
+            }
+            setPicking(false);
+            openStreetView(coordinates);
+        });
+
+        // 表の行クリック: その取引の場所を航空写真で拡大表示
+        const tableCoordCache = new Map();
+        const focusTableRow = async function (index) {
+            const record = tableRecords[index];
+            if (!record) {
+                return;
+            }
+            let coordinates = tableCoordCache.get(index) || extractCoordinates(record);
+            if (!coordinates) {
+                const address = buildAddress(record);
+                if (address) {
+                    setMapStatus('位置を検索中です…', 'secondary');
+                    coordinates = await geocodeAddress(address).catch(function () { return null; });
+                }
+            }
+            if (!coordinates) {
+                setMapStatus('この取引の位置を特定できませんでした。', 'warning');
+                return;
+            }
+            tableCoordCache.set(index, coordinates);
+            const price = toPriceNumber(record.TradePrice);
+            const popupHtml = createPopupHtml(record, Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A') +
+                '<div class="mt-2"><a href="' + streetViewUrl(coordinates) + '" data-streetview="' + coordinates[0] + ',' + coordinates[1] + '">ストリートビューで見る</a></div>';
+            setBasemap('aerial');
+            mapAdapter.focus(coordinates, popupHtml);
+            document.getElementById('map').scrollIntoView({behavior: 'smooth', block: 'center'});
+            setMapStatus('選択した取引の場所を表示中です。取引価格情報は町丁目単位のため、位置は地区の代表点付近です。', 'info');
+        };
+        document.querySelectorAll('#dataTable tbody tr.row-clickable').forEach(function (row) {
+            const open = function () { focusTableRow(Number(row.dataset.index)); };
+            row.addEventListener('click', open);
+            row.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    open();
+                }
             });
         });
 
