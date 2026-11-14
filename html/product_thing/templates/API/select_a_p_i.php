@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 市区町村だけ差し替える（ページ遷移しない）。同じページをfetchして #city の選択肢を取り出す。
     const refreshCities = async function () {
         const current = ++cityRequest;
+        const previousCity = city.value;
         city.innerHTML = '<option value="">選択してください</option>';
         if (!prefecture.value) { cityStatus.textContent = '先に都道府県を選んでください。'; city.disabled = true; return; }
         cityStatus.textContent = '市区町村を読み込み中…';
@@ -99,6 +100,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const options = doc.querySelectorAll('#city option');
             city.innerHTML = '';
             options.forEach(function (o) { city.appendChild(document.importNode(o, true)); });
+            // 年だけ変えたときなど、同じ市区町村が一覧にあれば選択を維持する
+            if (previousCity && Array.from(city.options).some(function (o) { return o.value === previousCity; })) {
+                city.value = previousCity;
+            }
             cityStatus.textContent = options.length > 1 ? '' : '市区町村を取得できませんでした。年を変えるか、時間をおいて再度お試しください。';
         } catch (e) {
             if (current !== cityRequest) return;
