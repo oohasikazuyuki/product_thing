@@ -377,13 +377,7 @@
         });
 
         document.getElementById('prefecture').addEventListener('change', function () {
-            loadCities('').then(function () {
-                searchRentals(1);
-            });
-        });
-
-        document.getElementById('city').addEventListener('change', function () {
-            searchRentals(1);
+            loadCities('');
         });
 
         document.getElementById('rentalPager').addEventListener('click', function (event) {
@@ -408,7 +402,7 @@
             mapReady = true;
             resetMapView();
             loadCities(config.defaultCity || '').then(function () {
-                searchRentals(1);
+                setStatus('条件を選んで「検索」を押してください。');
             });
         });
 

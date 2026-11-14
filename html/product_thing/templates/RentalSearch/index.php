@@ -62,7 +62,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
                 <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
             </div>
-            <span id="searchStatus" class="small text-muted" role="status" aria-live="polite">読み込み中…</span>
+            <span id="searchStatus" class="small text-muted" role="status" aria-live="polite">条件を選んで「検索」を押してください。</span>
         </div>
         <div id="rentalMap" class="map-canvas" role="img" aria-label="賃貸物件の地図"></div>
     </div>
