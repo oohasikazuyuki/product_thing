@@ -139,6 +139,21 @@
         map.jumpTo({ center: defaultCenter, zoom: defaultZoom });
     };
 
+    // 駅→物件の徒歩ルートをGoogleマップで開くURL（駅名が無い物件はnull）
+    const routeUrl = function (item) {
+        if (!item.station) {
+            return null;
+        }
+        const prefecture = (String(item.address || '').match(/^(北海道|.{2,3}?[都道府県])/) || [''])[0];
+        const station = String(item.station).replace(/駅$/, '') + '駅';
+        const lat = Number(item.lat);
+        const lng = Number(item.lng);
+        const destination = isJapanCoordinate(lat, lng) ? lat + ',' + lng : String(item.address || item.name || '');
+        return 'https://www.google.com/maps/dir/?api=1&travelmode=walking' +
+            '&origin=' + encodeURIComponent(prefecture + station) +
+            '&destination=' + encodeURIComponent(destination);
+    };
+
     const popupHtml = function (item) {
         return '<div style="font:500 13px/1.45 \'IBM Plex Sans JP\',sans-serif;max-width:220px;">' +
             '<strong style="font-size:14px;">' + escapeHtml(item.name) + '</strong><br>' +
@@ -147,6 +162,7 @@
             escapeHtml(item.layout || 'N/A') +
             (item.station ? ' · ' + escapeHtml(item.station) : '') +
             (item.walk_minutes ? ' 徒歩' + escapeHtml(item.walk_minutes) + '分' : '') +
+            (routeUrl(item) ? '<br><a href="' + escapeHtml(routeUrl(item)) + '" target="_blank" rel="noopener">駅からの道のりを見る</a>' : '') +
             '</div>';
     };
 
@@ -254,9 +270,14 @@
                         return '<span>' + escapeHtml(t) + '</span>';
                     }).join('') + '</div>'
                     : '') +
+                '<div class="listing-actions">' +
                 (markersById[item.id]
                     ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
                     : '') +
+                (routeUrl(item)
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-route="' + escapeHtml(routeUrl(item)) + '">駅からの道のり</button>'
+                    : '') +
+                '</div>' +
                 '</div>';
             frag.appendChild(el);
         });
@@ -389,6 +410,13 @@
         });
 
         document.getElementById('rentalResults').addEventListener('click', function (event) {
+            const route = event.target.closest('[data-route]');
+            if (route) {
+                event.preventDefault();
+                event.stopPropagation();
+                window.open(route.dataset.route, '_blank', 'noopener');
+                return;
+            }
             const locate = event.target.closest('[data-locate]');
             if (locate) {
                 event.preventDefault();

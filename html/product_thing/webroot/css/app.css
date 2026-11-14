@@ -58,3 +58,4 @@ a.listing-item:hover { color: inherit; text-decoration: none; box-shadow: 0 3px 
 .listing-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); background: #fff; border-radius: 10px; }
 .listing-item.is-active { outline: 2px solid var(--brand); }
 .listing-locate { font-size: .8rem; }
+.listing-actions { display: flex; gap: 1rem; }
