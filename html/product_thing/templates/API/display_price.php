@@ -10,7 +10,12 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
         <h1>取引価格結果</h1>
         <p><?= h($summary) ?></p>
     </div>
-    <?= $this->Html->link('条件を変更', ['controller' => 'PriceSearch', 'action' => 'selectAPI', '?' => ['prefecture' => $query['area'] ?? '', 'year' => $query['year'] ?? '']], ['class' => 'btn btn-outline-success btn-sm']) ?>
+    <?php $carry = ['area' => $query['area'] ?? '', 'city' => $query['city'] ?? '', 'year' => $query['year'] ?? '']; ?>
+    <div class="btn-group btn-group-sm" role="group" aria-label="この条件で他の調査へ">
+        <?= $this->Html->link('この条件で防災調査', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => $carry], ['class' => 'btn btn-outline-success']) ?>
+        <?= $this->Html->link('この条件で学校調査', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => $carry], ['class' => 'btn btn-outline-success']) ?>
+        <?= $this->Html->link('条件を変更', ['controller' => 'PriceSearch', 'action' => 'selectAPI', '?' => ['prefecture' => $carry['area'], 'city' => $carry['city'], 'year' => $carry['year']]], ['class' => 'btn btn-outline-secondary']) ?>
+    </div>
 </div>
 
 <div class="row">
