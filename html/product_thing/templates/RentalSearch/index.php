@@ -37,22 +37,44 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <option value="">読み込み中…</option>
             </select>
         </div>
-        <div class="form-group col-6 col-md-2 mb-2">
-            <label class="small mb-1" for="month_money_room">最低賃料（万円）</label>
-            <input type="number" step="0.1" min="0" id="month_money_room" name="month_money_room" value="5" class="form-control form-control-sm">
-        </div>
-        <div class="form-group col-6 col-md-2 mb-2">
-            <label class="small mb-1" for="month_money_room_h">最高賃料（万円）</label>
-            <input type="number" step="0.1" min="0" id="month_money_room_h" name="month_money_room_h" value="15" class="form-control form-control-sm">
-        </div>
-        <div class="form-group col-8 col-md-3 mb-2">
-            <label class="small mb-1" for="free_word">キーワード</label>
-            <input type="search" id="free_word" name="free_word" class="form-control form-control-sm" placeholder="例：1K、駅名">
-        </div>
-        <div class="form-group col-4 col-md-1 mb-2">
+        <?php
+        // 数字を打たずに選べるよう、よく使う区切りをプルダウンにする
+        $rangeSelects = [
+            ['label' => '賃料', 'min' => 'month_money_room', 'max' => 'month_money_room_h', 'defMin' => '5', 'defMax' => '15',
+                'steps' => [3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50], 'unit' => '万円'],
+            ['label' => '広さ（面積）', 'min' => 'area_min', 'max' => 'area_max', 'defMin' => '', 'defMax' => '',
+                'steps' => [15, 20, 25, 30, 40, 50, 60, 70, 80, 100], 'unit' => '㎡'],
+        ];
+        ?>
+        <?php foreach ($rangeSelects as $range): ?>
+            <div class="form-group col-12 col-md-3 mb-2">
+                <span class="small d-block mb-1"><?= h($range['label']) ?></span>
+                <div class="input-group input-group-sm">
+                    <?php foreach (['min' => ['下限なし', $range['defMin'], 'の下限'], 'max' => ['上限なし', $range['defMax'], 'の上限']] as $edge => [$none, $default, $suffix]): ?>
+                        <select id="<?= h($range[$edge]) ?>" name="<?= h($range[$edge]) ?>" class="form-control" aria-label="<?= h($range['label'] . $suffix) ?>">
+                            <option value=""><?= h($none) ?></option>
+                            <?php foreach ($range['steps'] as $step): ?>
+                                <option value="<?= (int)$step ?>"<?= (string)$step === $default ? ' selected' : '' ?>><?= (int)$step . h($range['unit']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+        <div class="form-group col-12 col-md-2 mb-2">
             <button type="submit" class="btn btn-success btn-sm btn-block" id="searchBtn">検索</button>
         </div>
     </div>
+    <?php $layoutOptions = ['ワンルーム', '1K', '1DK', '1LDK', '2K', '2DK', '2LDK', '3K', '3DK', '3LDK']; ?>
+    <fieldset class="mb-0">
+        <legend class="small mb-1 col-form-label p-0">間取り（複数選択可・未選択ならすべて）</legend>
+        <div class="chip-group" id="layoutChips">
+            <?php foreach ($layoutOptions as $i => $layout): ?>
+                <input type="checkbox" id="layout-<?= (int)$i ?>" name="layouts" value="<?= h($layout) ?>">
+                <label for="layout-<?= (int)$i ?>"><?= h($layout) ?></label>
+            <?php endforeach; ?>
+        </div>
+    </fieldset>
 </form>
 
 <div class="row">
