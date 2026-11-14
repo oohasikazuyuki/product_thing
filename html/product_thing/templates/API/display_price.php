@@ -45,10 +45,10 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
             <div class="card-body p-3">
                 <h2 class="h6">分析モード</h2>
                 <div class="btn-group-vertical btn-group-sm w-100" role="group" aria-label="分析モード">
-                    <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
-                    <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
-                    <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
-                    <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn is-active" data-mode="living">お買い物・生活</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="safety">安心・防災</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="invest">プロ・投資</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="nature">自然環境</button>
                 </div>
             </div>
         </div>
@@ -60,7 +60,7 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
         </div>
     </div>
     <div class="col-lg-9 mb-3">
-        <div class="d-flex flex-wrap align-items-center mb-2">
+        <div class="d-flex flex-wrap align-items-center mb-2 map-toolbar">
             <div class="btn-group btn-group-sm mr-2 mb-1" role="group" aria-label="地図の種類">
                 <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
                 <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
@@ -69,7 +69,15 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
             <small class="text-muted ml-2 mb-1">表の行をクリックすると、その場所を航空写真で拡大します</small>
         </div>
         <div id="map" class="map-canvas" aria-label="不動産データの地図"></div>
-        <div id="mapStatus" class="alert alert-secondary mt-3 mb-0" role="status">地図を準備中です。</div>
+        <div class="d-flex flex-wrap align-items-center small text-muted mt-2" aria-label="取引価格の色の凡例">
+            <span class="mr-3">取引価格:</span>
+            <span class="mr-3"><span class="legend-dot" style="background:#16a34a"></span>3,000万円未満</span>
+            <span class="mr-3"><span class="legend-dot" style="background:#f59e0b"></span>3,000万〜5,000万円</span>
+            <span class="mr-3"><span class="legend-dot" style="background:#ea580c"></span>5,000万〜1億円</span>
+            <span class="mr-3"><span class="legend-dot" style="background:#b91c1c"></span>1億円以上</span>
+            <span><span class="legend-dot" style="background:#2563eb"></span>価格不明</span>
+        </div>
+        <div id="mapStatus" class="alert alert-secondary mt-2 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>取引データを取得しています（数秒かかります）…</div>
     </div>
 </div>
 
@@ -78,7 +86,7 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
         <input type="search" id="searchInput" class="form-control form-control-sm w-auto mb-2" style="min-width:16rem" placeholder="このページ内を絞り込み（例：神奈川区）" aria-label="このページ内を絞り込み">
         <small class="text-muted mb-2"><?= __('ページ {0} / {1}（全{2}件）', $page, $pages, $total) ?></small>
     </div>
-    <div class="table-responsive mb-3">
+    <div class="table-card mb-3">
         <table class="table table-striped table-hover table-sm" id="dataTable">
             <thead>
             <tr>
@@ -227,7 +235,7 @@ if (!empty($data) && is_array($data)) {
 
         const renderLayerControls = function () {
             let html = '';
-            layerCatalog.forEach(function (layer) {
+            layerCatalog.filter(function (layer) { return layer.available; }).forEach(function (layer) {
                 const checked = activeLayers.has(layer.id) ? 'checked' : '';
                 const disabled = layer.available ? '' : 'disabled';
                 const muted = layer.available ? '' : ' text-muted';
@@ -458,6 +466,10 @@ if (!empty($data) && is_array($data)) {
                         });
                         googleMap.fitBounds(bounds);
                     },
+                    centerOn: function (coordinates, zoom) {
+                        googleMap.setCenter({lat: coordinates[1], lng: coordinates[0]});
+                        googleMap.setZoom(zoom);
+                    },
                     setAerial: function (on) {
                         googleMap.setMapTypeId(on ? 'hybrid' : 'roadmap');
                     },
@@ -562,6 +574,9 @@ if (!empty($data) && is_array($data)) {
                         padding: 40,
                         maxZoom: 13
                     });
+                },
+                centerOn: function (coordinates, zoom) {
+                    maplibreMap.jumpTo({center: coordinates, zoom: zoom});
                 },
                 setAerial: function (on) {
                     maplibreMap.setLayoutProperty('aerial', 'visibility', on ? 'visible' : 'none');
@@ -713,6 +728,7 @@ if (!empty($data) && is_array($data)) {
                             coordinates = await geocodeAddress(address);
                             geocodeCache.set(address, coordinates);
                             geocodeCount += 1;
+                            setMapStatus('位置情報を取得中です…（' + geocodeCount + ' / ' + geocodeLimit + '）', 'secondary');
                             await sleep(200);
                         }
                     }
@@ -763,6 +779,16 @@ if (!empty($data) && is_array($data)) {
         renderLayerControls();
 
         mapAdapter.ready(function () {
+            // データ取得を待たず、まず選択した市区町村へ地図を寄せる
+            const firstRecord = tableRecords[0];
+            const cityName = firstRecord ? buildAddress({Prefecture: firstRecord.Prefecture, Municipality: firstRecord.Municipality}) : null;
+            if (cityName) {
+                geocodeAddress(cityName).then(function (coordinates) {
+                    if (coordinates) {
+                        mapAdapter.centerOn(coordinates, 12);
+                    }
+                }).catch(function () {});
+            }
             fetchGeoJsonRecords().then(function (initialRecords) {
                 if (Array.isArray(initialRecords) && initialRecords.length > 0) {
                     records = initialRecords;
