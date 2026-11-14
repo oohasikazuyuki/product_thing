@@ -32,3 +32,10 @@ a { color: #166534; }
 .map-toolbar .btn { min-height: 2.25rem; }
 @media (prefers-reduced-motion: reduce) { .feature-card { transition: none; } }
 .legend-dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; margin-right: .3rem; vertical-align: -1px; }
+.page-item.active .page-link { background: var(--brand); border-color: var(--brand); color: #fff; }
+.page-link { color: var(--brand); }
+.form-check-input, .custom-control-input { accent-color: var(--brand); }
+.skip-link { position: absolute; left: -999px; top: 0; z-index: 2000; background: #fff; padding: .5rem 1rem; }
+.skip-link:focus { left: .5rem; top: .5rem; }
+.form-control:disabled { background: #eef0ef; cursor: not-allowed; }
+@media (max-width: 575.98px) { .table-card { max-height: 60vh; } .page-header h1 { font-size: 1.3rem; } .navbar-brand { font-size: 1rem; } }

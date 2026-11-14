@@ -16,32 +16,32 @@
     <div class="row">
         <div class="col-lg-8">
             <div id="map" class="map-canvas"></div>
-            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です…</div>
+            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です（十数秒かかることがあります）…</div>
         </div>
         <div class="col-lg-4">
             <div class="card mb-3">
                 <div class="card-body">
                     <h2 class="h6">表示レイヤー</h2>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt004" checked><label class="form-check-label">小学校区</label></div>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt005" checked><label class="form-check-label">中学校区</label></div>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt006" checked><label class="form-check-label">学校</label></div>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt007" checked><label class="form-check-label">保育園・幼稚園</label></div>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt010" checked><label class="form-check-label">医療機関</label></div>
-                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt011" checked><label class="form-check-label">福祉施設</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt004" data-layer="xkt004" checked><label class="form-check-label" for="layer-xkt004">小学校区</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt005" data-layer="xkt005" checked><label class="form-check-label" for="layer-xkt005">中学校区</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt006" data-layer="xkt006" checked><label class="form-check-label" for="layer-xkt006">学校</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt007" data-layer="xkt007" checked><label class="form-check-label" for="layer-xkt007">保育園・幼稚園</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt010" data-layer="xkt010" checked><label class="form-check-label" for="layer-xkt010">医療機関</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" id="layer-xkt011" data-layer="xkt011" checked><label class="form-check-label" for="layer-xkt011">福祉施設</label></div>
                 </div>
             </div>
             <div class="card mb-3">
                 <div class="card-body">
                     <h2 class="h6">調査サマリー</h2>
                     <table class="table table-sm mb-0">
-                        <tbody id="surveySummary"></tbody>
+                        <tbody id="surveySummary"><tr><td class="text-muted">読み込み中…</td></tr></tbody>
                     </table>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body">
                     <h2 class="h6">調査対象（抜粋）</h2>
-                    <ul id="surveyList" class="small mb-0 pl-3"></ul>
+                    <ul id="surveyList" class="small mb-0 pl-3"><li class="text-muted">読み込み中…</li></ul>
                 </div>
             </div>
         </div>
@@ -101,6 +101,10 @@ document.addEventListener('DOMContentLoaded', async function () {
         return null;
     };
 
+    // 内部ID（英数字）ではなく、日本語の名称・属性だけを表示に使う
+    const jpValues = (p) => Object.keys(p).map((k) => p[k]).filter((v) => typeof v === 'string' && /[\u3040-\u30ff\u3400-\u9fff]/.test(v));
+    const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
     const addFeatures = (features, color, label, layerKey) => {
         let count = 0;
         const samples = [];
@@ -109,13 +113,13 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (!c) return;
             const p = f.properties || {};
             const marker = new maplibregl.Marker({color}).setLngLat(c).setPopup(
-                new maplibregl.Popup({offset: 24}).setHTML('<strong>' + label + '</strong><br>' + Object.keys(p).slice(0, 4).map((k) => k + ': ' + p[k]).join('<br>'))
+                new maplibregl.Popup({offset: 24}).setHTML('<strong>' + label + '</strong><br>' + jpValues(p).slice(0, 4).map(escapeHtml).join('<br>'))
             ).addTo(map);
             markerRegistry[layerKey].push(marker);
             count += 1;
-            if (samples.length < 5) {
-                const value = Object.keys(p).slice(0, 2).map((k) => p[k]).join(' / ');
-                samples.push((value || '名称不明') + ' (' + label + ')');
+            const names = jpValues(p);
+            if (samples.length < 5 && names.length > 0) {
+                samples.push(escapeHtml(names[0]) + ' <span class="text-muted">(' + label + ')</span>');
             }
         });
         return {count, samples};
@@ -196,13 +200,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             const layerResults = [];
             const layerErrors = [];
-            for (const def of layerDefs) {
-                const result = await fetchLayer(def);
+            const fetched = await Promise.all(layerDefs.map((def) => fetchLayer(def).catch(() => ({count: 0, samples: [], error: 'レイヤーAPIの取得に失敗しました: ' + def.apiId}))));
+            fetched.forEach((result, i) => {
                 if (result.error) {
                     layerErrors.push(result.error);
                 }
-                layerResults.push({label: def.label, key: def.key, count: result.count, samples: result.samples});
-            }
+                layerResults.push({label: layerDefs[i].label, key: layerDefs[i].key, count: result.count, samples: result.samples});
+            });
 
             const displayTxCount = tx.count > 0 ? tx.count : txTotalCount;
             renderSummary([{label: '取引価格', count: displayTxCount}].concat(layerResults.map((r) => ({label: r.label, count: r.count}))));
@@ -226,7 +230,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (warnings.length > 0) {
                 const isFallbackOnly = warnings.length === 1 && txWarning && layerErrors.length === 0 && txWarning.indexOf('住所ジオコーディングで補完表示しています') !== -1;
                 status.className = (isFallbackOnly ? 'alert alert-info' : 'alert alert-warning') + ' mt-3 mb-0';
-                status.textContent = (isFallbackOnly ? '補完表示中: ' : '一部データの取得に失敗しました: ') + warnings.join(' / ');
+                status.textContent = isFallbackOnly
+                    ? '取引ポイントのデータを取得できなかったため、住所から位置を補完して表示しています。'
+                    : '一部データの取得に失敗しました: ' + warnings.join(' / ');
+                status.title = warnings.join(' / ');
             } else {
                 status.className = 'alert alert-success mt-3 mb-0';
                 status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';

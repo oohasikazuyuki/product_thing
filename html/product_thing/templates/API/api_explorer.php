@@ -29,7 +29,7 @@
             'required' => true,
         ]) ?>
     </div>
-    <?= $this->Form->button('APIを実行', ['class' => 'btn btn-primary']) ?>
+    <?= $this->Form->button('APIを実行', ['class' => 'btn btn-success', 'id' => 'runButton']) ?>
     <?= $this->Form->end() ?>
 
     <?php if (!empty($requestUrl)): ?>
@@ -61,8 +61,8 @@
 
     <hr>
     <h2 class="h5 mb-3">利用可能APIカタログ</h2>
-    <div class="table-responsive">
-        <table class="table table-sm table-bordered table-striped">
+    <div class="table-card">
+        <table class="table table-sm table-striped">
             <thead class="thead-dark">
             <tr>
                 <th>ID</th>
@@ -84,3 +84,18 @@
         </table>
     </div>
 </div>
+
+<?php $this->start('script'); ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form');
+    const button = document.getElementById('runButton');
+    if (form && button) {
+        form.addEventListener('submit', function () {
+            button.disabled = true;
+            button.textContent = '実行中…';
+        });
+    }
+});
+</script>
+<?php $this->end(); ?>

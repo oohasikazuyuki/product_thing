@@ -21,6 +21,7 @@ $navItems = [
     <?= $this->fetch('css') ?>
 </head>
 <body>
+<a class="skip-link" href="#main">本文へスキップ</a>
 <nav class="navbar navbar-expand-lg navbar-dark navbar-app">
     <?= $this->Html->link('不動産取引情報システム', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'navbar-brand']) ?>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="メニューを開く">
@@ -37,10 +38,10 @@ $navItems = [
     </div>
 </nav>
 
-<div class="<?= h($this->fetch('containerClass') ?: 'container') ?> mt-4 mb-5">
+<main id="main" class="<?= h($this->fetch('containerClass') ?: 'container') ?> mt-4 mb-5">
     <?= $this->Flash->render() ?>
     <?= $this->fetch('content') ?>
-</div>
+</main>
 
 <?= $this->Html->script('https://code.jquery.com/jquery-3.5.1.slim.min.js') ?>
 <?= $this->Html->script('https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js') ?>
