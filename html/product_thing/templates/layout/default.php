@@ -21,7 +21,7 @@ $navItems = [
     <?= $this->fetch('css') ?>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-success">
+<nav class="navbar navbar-expand-lg navbar-dark navbar-app">
     <?= $this->Html->link('不動産取引情報システム', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'navbar-brand']) ?>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="メニューを開く">
         <span class="navbar-toggler-icon"></span>

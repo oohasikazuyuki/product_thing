@@ -1,11 +1,13 @@
 <?php $this->assign('title', '取引価格検索'); ?>
-<div class="page-header">
-    <h1>物件の取引価格を探す</h1>
-    <p>都道府県・市区町村・年を選ぶと、国土交通省の取引価格情報を地図と一覧で確認できます。</p>
+<div class="hero">
+    <h1>物件の取引価格を、地図で探す</h1>
+    <p>都道府県・市区町村・年を選ぶだけで、国土交通省の取引価格情報を地図と一覧で確認できます。航空写真やストリートビューで周辺も見られます。</p>
 </div>
 
+<div class="row justify-content-center">
+<div class="col-lg-10">
 <div class="card">
-    <div class="card-body">
+    <div class="card-body p-4">
         <?= $this->Form->create(null, ['url' => ['controller' => 'PriceSearch', 'action' => 'selectAPI'], 'class' => 'needs-validation', 'novalidate' => true, 'id' => 'searchForm']) ?>
         <div class="form-row">
             <div class="form-group col-md-4">
@@ -50,6 +52,22 @@
         </div>
         <?= $this->Form->button('検索', ['class' => 'btn btn-success btn-block', 'id' => 'searchButton']) ?>
         <?= $this->Form->end() ?>
+    </div>
+</div>
+</div>
+</div>
+
+<div class="row mt-4 justify-content-center">
+    <div class="col-lg-10">
+        <h2 class="h6 text-muted mb-3">そのほかの調査</h2>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <?= $this->Html->link('<h2>防災・規制調査</h2><p>都市計画・用途地域・災害リスクを地図に重ねて確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+            </div>
+            <div class="col-md-6 mb-3">
+                <?= $this->Html->link('<h2>学校・生活調査</h2><p>学校区・保育園・医療施設など暮らしの環境を確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+            </div>
+        </div>
     </div>
 </div>
 
