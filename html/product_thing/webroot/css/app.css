@@ -39,3 +39,7 @@ a { color: #166534; }
 .skip-link:focus { left: .5rem; top: .5rem; }
 .form-control:disabled { background: #eef0ef; cursor: not-allowed; }
 @media (max-width: 575.98px) { .table-card { max-height: 60vh; } .page-header h1 { font-size: 1.3rem; } .navbar-brand { font-size: 1rem; } }
+.sort-btn { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; white-space: nowrap; }
+.sort-btn:hover, .sort-btn:focus { text-decoration: underline; outline: none; }
+.sort-icon { display: inline-block; min-width: 1em; font-size: .7em; }
+.table-active { background-color: #d9ecdf !important; }

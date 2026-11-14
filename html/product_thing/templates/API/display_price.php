@@ -2,39 +2,13 @@
 $this->assign('title', '取引価格結果');
 $this->assign('containerClass', 'container-fluid px-md-4');
 $query = $this->request->getQuery();
-$page = (int)$page;
-$pages = (int)$pages;
-$first = (!empty($data) && is_array($data) && is_array(reset($data))) ? reset($data) : [];
+$first = $rows[0] ?? [];
 $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? '') . ' ' . ($query['year'] ?? '') . '年');
-$cell = fn($v) => ($v === null || $v === '') ? '—' : h((string)$v);
-$yen = function ($v) {
-    if (!is_numeric($v)) return '—';
-    $v = (float)$v;
-    $label = $v >= 100000000 ? rtrim(rtrim(number_format($v / 100000000, 2), '0'), '.') . '億円' : number_format($v / 10000) . '万円';
-    return $label;
-};
-$pageUrl = fn(int $n) => ['?' => array_merge($query, ['page' => $n])];
-$renderPager = function () use ($page, $pages, $pageUrl) {
-    if ($pages <= 1) return '';
-    $items = [];
-    $add = function (string $label, ?int $n, bool $active = false) use (&$items, $pageUrl) {
-        $link = $n === null
-            ? '<span class="page-link">' . h($label) . '</span>'
-            : $this->Html->link($label, $pageUrl($n), ['class' => 'page-link']);
-        $items[] = '<li class="page-item' . ($active ? ' active' : '') . ($n === null && !$active ? ' disabled' : '') . '">' . $link . '</li>';
-    };
-    $add('« 前へ', $page > 1 ? $page - 1 : null);
-    if ($page > 3) { $add('1', 1); if ($page > 4) $add('…', null); }
-    for ($n = max(1, $page - 2); $n <= min($pages, $page + 2); $n++) $add((string)$n, $n === $page ? null : $n, $n === $page);
-    if ($page < $pages - 2) { if ($page < $pages - 3) $add('…', null); $add((string)$pages, (int)$pages); }
-    $add('次へ »', $page < $pages ? $page + 1 : null);
-    return '<nav aria-label="ページ送り"><ul class="pagination pagination-sm justify-content-center mb-0">' . implode('', $items) . '</ul></nav>';
-};
 ?>
 <div class="page-header d-flex flex-wrap justify-content-between align-items-end">
     <div>
         <h1>取引価格結果</h1>
-        <p><?= h($summary) ?>　<?= $total ? number_format((int)$total) . '件' : '' ?></p>
+        <p><?= h($summary) ?></p>
     </div>
     <?= $this->Html->link('条件を変更', ['controller' => 'PriceSearch', 'action' => 'selectAPI', '?' => ['prefecture' => $query['area'] ?? '', 'year' => $query['year'] ?? '']], ['class' => 'btn btn-outline-success btn-sm']) ?>
 </div>
@@ -81,50 +55,63 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
     </div>
 </div>
 
-<?php if (!empty($data)): ?>
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-        <input type="search" id="searchInput" class="form-control form-control-sm w-auto mb-2" style="min-width:16rem" placeholder="絞り込み（例：岩本町）" aria-label="このページ内を絞り込み">
-        <small class="text-muted mb-2"><?= __('ページ {0} / {1}（全{2}件）', $page, $pages, $total) ?></small>
+<?php if (!empty($rows)): ?>
+    <div class="card mb-3">
+        <div class="card-body p-3">
+            <div class="form-row align-items-end">
+                <div class="form-group col-6 col-md-2 mb-2">
+                    <label class="small mb-1" for="fType">種類</label>
+                    <select id="fType" class="form-control form-control-sm"></select>
+                </div>
+                <div class="form-group col-6 col-md-2 mb-2">
+                    <label class="small mb-1" for="fDistrict">地区</label>
+                    <select id="fDistrict" class="form-control form-control-sm"></select>
+                </div>
+                <div class="form-group col-6 col-md-2 mb-2">
+                    <label class="small mb-1" for="fPriceMin">取引価格（万円）</label>
+                    <div class="input-group input-group-sm">
+                        <input id="fPriceMin" type="number" min="0" inputmode="numeric" class="form-control" placeholder="下限" aria-label="取引価格の下限（万円）">
+                        <input id="fPriceMax" type="number" min="0" inputmode="numeric" class="form-control" placeholder="上限" aria-label="取引価格の上限（万円）">
+                    </div>
+                </div>
+                <div class="form-group col-6 col-md-2 mb-2">
+                    <label class="small mb-1" for="fAreaMin">面積（㎡）</label>
+                    <div class="input-group input-group-sm">
+                        <input id="fAreaMin" type="number" min="0" inputmode="numeric" class="form-control" placeholder="下限" aria-label="面積の下限（㎡）">
+                        <input id="fAreaMax" type="number" min="0" inputmode="numeric" class="form-control" placeholder="上限" aria-label="面積の上限（㎡）">
+                    </div>
+                </div>
+                <div class="form-group col-8 col-md-3 mb-2">
+                    <label class="small mb-1" for="searchInput">キーワード</label>
+                    <input type="search" id="searchInput" class="form-control form-control-sm" placeholder="例：岩本町、RC、1K">
+                </div>
+                <div class="form-group col-4 col-md-1 mb-2">
+                    <button type="button" id="fClear" class="btn btn-outline-secondary btn-sm btn-block">クリア</button>
+                </div>
+            </div>
+        </div>
     </div>
+    <div id="resultCount" class="small text-muted mb-2" role="status" aria-live="polite"></div>
     <div class="table-card mb-3">
         <table class="table table-striped table-hover table-sm" id="dataTable">
             <thead>
             <tr>
-                <th>種類</th>
-                <th class="d-none d-xl-table-cell">都道府県</th>
-                <th>市区町村・地区</th>
-                <th class="text-right">取引価格</th>
-                <th class="text-right">面積</th>
-                <th>建築年</th>
-                <th>間取り</th>
-                <th class="d-none d-xl-table-cell">構造</th>
-                <th class="d-none d-xl-table-cell">用途</th>
-                <th>取引時期</th>
+                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="Type">種類 <span class="sort-icon" aria-hidden="true"></span></button></th>
+                <th scope="col" class="d-none d-xl-table-cell">都道府県</th>
+                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="Municipality">市区町村・地区 <span class="sort-icon" aria-hidden="true"></span></button></th>
+                <th scope="col" class="text-right" aria-sort="none"><button type="button" class="sort-btn" data-sort="TradePrice">取引価格 <span class="sort-icon" aria-hidden="true"></span></button></th>
+                <th scope="col" class="text-right" aria-sort="none"><button type="button" class="sort-btn" data-sort="Area">面積 <span class="sort-icon" aria-hidden="true"></span></button></th>
+                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="BuildingYear">建築年 <span class="sort-icon" aria-hidden="true"></span></button></th>
+                <th scope="col">間取り</th>
+                <th scope="col" class="d-none d-xl-table-cell">構造</th>
+                <th scope="col" class="d-none d-xl-table-cell">用途</th>
+                <th scope="col" aria-sort="none"><button type="button" class="sort-btn" data-sort="Period">取引時期 <span class="sort-icon" aria-hidden="true"></span></button></th>
             </tr>
             </thead>
-            <tbody>
-            <?php $rowIndex = 0; ?>
-            <?php foreach ($data as $record): ?>
-                <?php if (is_array($record)): ?>
-                    <tr class="row-clickable" data-index="<?= $rowIndex++ ?>" tabindex="0" title="クリックで航空写真に拡大">
-                        <td><?= $cell($record['Type'] ?? null) ?><div class="small text-muted"><?= $cell($record['PriceCategory'] ?? null) ?></div></td>
-                        <td class="d-none d-xl-table-cell"><?= $cell($record['Prefecture'] ?? null) ?></td>
-                        <td><?= $cell($record['Municipality'] ?? null) ?> <?= h($record['DistrictName'] ?? '') ?>
-                            <div class="small text-muted d-xl-none"><?= $cell($record['Structure'] ?? null) ?> / <?= $cell($record['Purpose'] ?? null) ?></div></td>
-                        <td class="text-right text-nowrap" title="<?= isset($record['TradePrice']) ? h(number_format((float)$record['TradePrice']) . ' 円') : '' ?>"><?= h($yen($record['TradePrice'] ?? null)) ?></td>
-                        <td class="text-right text-nowrap"><?= isset($record['Area']) && $record['Area'] !== '' ? h($record['Area']) . ' m²' : '—' ?></td>
-                        <td><?= $cell($record['BuildingYear'] ?? null) ?></td>
-                        <td><?= $cell($record['FloorPlan'] ?? null) ?></td>
-                        <td class="d-none d-xl-table-cell"><?= $cell($record['Structure'] ?? null) ?></td>
-                        <td class="d-none d-xl-table-cell"><?= $cell($record['Purpose'] ?? null) ?></td>
-                        <td class="text-nowrap"><?= $cell($record['Period'] ?? null) ?></td>
-                    </tr>
-                <?php endif; ?>
-            <?php endforeach; ?>
-            </tbody>
+            <tbody id="tableBody"></tbody>
         </table>
     </div>
-    <?= $renderPager() ?>
+    <nav id="pager" aria-label="ページ送り"></nav>
 <?php else: ?>
     <div class="alert alert-warning text-center">条件に合うデータがありません。条件を変更してお試しください。</div>
 <?php endif; ?>
@@ -153,16 +140,6 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
 <?php else: ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <?php endif; ?>
-<?php
-$mapRecords = [];
-if (!empty($data) && is_array($data)) {
-    foreach ($data as $record) {
-        if (is_array($record)) {
-            $mapRecords[] = $record;
-        }
-    }
-}
-?>
 <script>
     document.addEventListener('DOMContentLoaded', (event) => {
         const defaultCenter = [139.7671, 35.6812];
@@ -172,8 +149,7 @@ if (!empty($data) && is_array($data)) {
         const layerDataEndpoint = <?= json_encode('/layer-data', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const geoJsonEndpoint = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const mapStatus = document.getElementById('mapStatus');
-        let records = <?= json_encode($mapRecords, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        const tableRecords = records.slice();
+        const allRows = <?= json_encode($rows ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const pageQuery = new URLSearchParams(window.location.search);
         const layerControls = document.getElementById('layerControls');
         const modeButtons = document.querySelectorAll('.mode-btn');
@@ -429,7 +405,7 @@ if (!empty($data) && is_array($data)) {
                     onMoveEnd: function (callback) {
                         googleMap.addListener('idle', callback);
                     },
-                    addPoint: function (record, coordinates, color, popupHtml) {
+                    addPoint: function (record, coordinates, color, popupHtml, onClick) {
                         const marker = new google.maps.Marker({
                             map: googleMap,
                             position: {lat: coordinates[1], lng: coordinates[0]},
@@ -444,6 +420,9 @@ if (!empty($data) && is_array($data)) {
                         });
                         const infoWindow = new google.maps.InfoWindow({content: popupHtml});
                         marker.addListener('click', function () {
+                            if (onClick) {
+                                onClick();
+                            }
                             infoWindow.open({
                                 anchor: marker,
                                 map: googleMap,
@@ -551,11 +530,14 @@ if (!empty($data) && is_array($data)) {
                 onMoveEnd: function (callback) {
                     maplibreMap.on('moveend', callback);
                 },
-                addPoint: function (record, coordinates, color, popupHtml) {
+                addPoint: function (record, coordinates, color, popupHtml, onClick) {
                     const marker = new maplibregl.Marker({color: color})
                         .setLngLat(coordinates)
                         .setPopup(new maplibregl.Popup({offset: 25}).setHTML(popupHtml))
                         .addTo(maplibreMap);
+                    if (onClick) {
+                        marker.getElement().addEventListener('click', onClick);
+                    }
                     return {
                         setVisible: function (isVisible) {
                             marker.getElement().style.display = isVisible ? '' : 'none';
@@ -665,101 +647,6 @@ if (!empty($data) && is_array($data)) {
             });
         };
 
-        const fetchGeoJsonRecords = async function () {
-            const requiredParams = ['area', 'city', 'year'];
-            const hasRequiredParams = requiredParams.every(function (param) {
-                const value = pageQuery.get(param);
-                return typeof value === 'string' && value !== '';
-            });
-            if (!hasRequiredParams) {
-                return null;
-            }
-
-            const params = new URLSearchParams({
-                area: pageQuery.get('area'),
-                city: pageQuery.get('city'),
-                year: pageQuery.get('year')
-            });
-            const bounds = mapAdapter.getBounds();
-            if (Array.isArray(bounds) && bounds.length === 4) {
-                params.set('bbox', bounds.join(','));
-            }
-
-            const response = await fetch(geoJsonEndpoint + '?' + params.toString(), {
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            if (!response.ok) {
-                return null;
-            }
-            const payload = await response.json();
-            if (!payload || payload.type !== 'FeatureCollection' || !Array.isArray(payload.features)) {
-                return null;
-            }
-
-            return payload.features;
-        };
-
-        const renderMapPoints = async function (fitBounds = true) {
-            if (!Array.isArray(records) || records.length === 0) {
-                setMapStatus('表示対象データがありません。', 'warning');
-                return;
-            }
-            clearLayerMarkers('price-points');
-
-            setMapStatus(modeName[currentMode] + 'モードでレイヤーを準備中です。', 'secondary');
-
-            const geocodeCache = new Map();
-            const geocodeLimit = 20;
-            let geocodeCount = 0;
-            let plottedCount = 0;
-            const plottedCoordinates = [];
-
-            for (const record of records) {
-                let coordinates = extractCoordinates(record);
-                const properties = toRecordProperties(record);
-                if (!coordinates && geocodeCount < geocodeLimit) {
-                    const address = buildAddress(properties);
-                    if (address) {
-                        if (geocodeCache.has(address)) {
-                            coordinates = geocodeCache.get(address);
-                        } else {
-                            coordinates = await geocodeAddress(address);
-                            geocodeCache.set(address, coordinates);
-                            geocodeCount += 1;
-                            setMapStatus('位置情報を取得中です…（' + geocodeCount + ' / ' + geocodeLimit + '）', 'secondary');
-                            await sleep(200);
-                        }
-                    }
-                }
-                if (!coordinates) {
-                    continue;
-                }
-
-                const price = toPriceNumber(properties.TradePrice);
-                const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
-                const popupHtml = createPopupHtml(properties, formattedPrice);
-                const markerWrapper = mapAdapter.addPoint(properties, coordinates, priceToColor(price), popupHtml);
-                layerMarkerRegistry['price-points'].push(markerWrapper);
-                plottedCount += 1;
-                plottedCoordinates.push(coordinates);
-            }
-
-            if (plottedCount === 0) {
-                setMapStatus('位置情報を取得できるデータがなく、地図上に表示できませんでした。', 'warning');
-                return;
-            }
-
-            if (fitBounds) {
-                mapAdapter.fitToBounds(plottedCoordinates);
-            }
-            applyLayerVisibility();
-            const mapText = useGoogleMaps ? 'Google Maps（Street View利用可）' : 'MapLibre';
-            setMapStatus(modeName[currentMode] + 'モードで ' + plottedCount + ' 件を表示中です（' + mapText + '）。', 'success');
-            reloadActiveApiLayers();
-        };
-
         modeButtons.forEach(function (button) {
             button.addEventListener('click', function () {
                 currentMode = button.dataset.mode;
@@ -777,48 +664,6 @@ if (!empty($data) && is_array($data)) {
 
         syncModeButtons();
         renderLayerControls();
-
-        mapAdapter.ready(function () {
-            // データ取得を待たず、まず選択した市区町村へ地図を寄せる
-            const firstRecord = tableRecords[0];
-            const cityName = firstRecord ? buildAddress({Prefecture: firstRecord.Prefecture, Municipality: firstRecord.Municipality}) : null;
-            if (cityName) {
-                geocodeAddress(cityName).then(function (coordinates) {
-                    if (coordinates) {
-                        mapAdapter.centerOn(coordinates, 12);
-                    }
-                }).catch(function () {});
-            }
-            fetchGeoJsonRecords().then(function (initialRecords) {
-                if (Array.isArray(initialRecords) && initialRecords.length > 0) {
-                    records = initialRecords;
-                }
-                return renderMapPoints();
-            }).catch(function () {
-                setMapStatus('地図データの表示中にエラーが発生しました。', 'danger');
-            });
-
-            let moveRefreshTimer = null;
-            mapAdapter.onMoveEnd(function () {
-                if (moveRefreshTimer !== null) {
-                    clearTimeout(moveRefreshTimer);
-                }
-                moveRefreshTimer = setTimeout(function () {
-                    fetchGeoJsonRecords().then(function (nextRecords) {
-                        if (!Array.isArray(nextRecords) || nextRecords.length === 0) {
-                            reloadActiveApiLayers();
-                            return;
-                        }
-                        records = nextRecords;
-                        return renderMapPoints(false).then(function () {
-                            reloadActiveApiLayers();
-                        });
-                    }).catch(function () {
-                        setMapStatus('地図移動後の再取得に失敗しました。', 'warning');
-                    });
-                }, 700);
-            });
-        });
 
         const streetViewUrl = function (coordinates) {
             return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + coordinates[1] + ',' + coordinates[0];
@@ -885,13 +730,12 @@ if (!empty($data) && is_array($data)) {
         });
 
         // 表の行クリック: その取引の場所を航空写真で拡大表示
-        const tableCoordCache = new Map();
-        const focusTableRow = async function (index) {
-            const record = tableRecords[index];
+        const focusTableRow = async function (id) {
+            const record = allRows[id];
             if (!record) {
                 return;
             }
-            let coordinates = tableCoordCache.get(index) || extractCoordinates(record);
+            let coordinates = extractCoordinates(record);
             if (!coordinates) {
                 const address = buildAddress(record);
                 if (address) {
@@ -903,7 +747,6 @@ if (!empty($data) && is_array($data)) {
                 setMapStatus('この取引の位置を特定できませんでした。', 'warning');
                 return;
             }
-            tableCoordCache.set(index, coordinates);
             const price = toPriceNumber(record.TradePrice);
             const popupHtml = createPopupHtml(record, Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A') +
                 '<div class="mt-2"><a href="' + streetViewUrl(coordinates) + '" data-streetview="' + coordinates[0] + ',' + coordinates[1] + '">ストリートビューで見る</a></div>';
@@ -912,29 +755,297 @@ if (!empty($data) && is_array($data)) {
             document.getElementById('map').scrollIntoView({behavior: 'smooth', block: 'center'});
             setMapStatus('選択した取引の場所を表示中です。取引価格情報は町丁目単位のため、位置は地区の代表点付近です。', 'info');
         };
-        document.querySelectorAll('#dataTable tbody tr.row-clickable').forEach(function (row) {
-            const open = function () { focusTableRow(Number(row.dataset.index)); };
-            row.addEventListener('click', open);
-            row.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    open();
+        // ---- 表（絞り込み・並べ替え・ページ送り）と地図を同じデータで動かす ----
+        const PAGE_SIZE = 30;
+        const MAX_MARKERS = 2000;
+        const tableBody = document.getElementById('tableBody');
+        const pager = document.getElementById('pager');
+        const resultCount = document.getElementById('resultCount');
+        const filterIds = ['fType', 'fDistrict', 'fPriceMin', 'fPriceMax', 'fAreaMin', 'fAreaMax', 'searchInput'];
+        const sortButtons = document.querySelectorAll('.sort-btn');
+        const state = {sortKey: null, sortDir: 1, page: 1, selectedId: null};
+        let filteredRows = allRows;
+        let mapReady = false;
+
+        allRows.forEach(function (row, index) { row._id = index; });
+
+        const num = function (value) {
+            if (value === null || value === undefined || value === '') {
+                return null;
+            }
+            const parsed = Number(String(value).replace(/,/g, ''));
+            return Number.isFinite(parsed) ? parsed : null;
+        };
+        const yearOf = function (value) {
+            const match = String(value || '').match(/(\d{4})/);
+            return match ? Number(match[1]) : null;
+        };
+        const formatYen = function (value) {
+            const yen = num(value);
+            if (yen === null) {
+                return '—';
+            }
+            return yen >= 100000000
+                ? String(Math.round(yen / 1000000) / 100) + '億円'
+                : Math.round(yen / 10000).toLocaleString() + '万円';
+        };
+        const cell = function (value) {
+            return value === null || value === undefined || value === '' ? '—' : escapeHtml(value);
+        };
+        const sortValue = {
+            Type: function (r) { return r.Type || null; },
+            Municipality: function (r) { return (r.Municipality || '') + (r.DistrictName || '') || null; },
+            TradePrice: function (r) { return num(r.TradePrice); },
+            Area: function (r) { return num(r.Area); },
+            BuildingYear: function (r) { return yearOf(r.BuildingYear); },
+            Period: function (r) { return r.Period || null; }
+        };
+
+        const fillSelect = function (id, label, values) {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="">' + label + '</option>' + values.map(function (v) {
+                return '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>';
+            }).join('');
+        };
+        const distinct = function (key) {
+            return Array.from(new Set(allRows.map(function (r) { return r[key]; }).filter(Boolean))).sort(function (a, b) {
+                return String(a).localeCompare(String(b), 'ja');
+            });
+        };
+
+        const readFilters = function () {
+            const value = function (id) { return document.getElementById(id).value.trim(); };
+            const toYen = function (id) { const v = num(value(id)); return v === null ? null : v * 10000; };
+            return {
+                type: value('fType'), district: value('fDistrict'),
+                priceMin: toYen('fPriceMin'), priceMax: toYen('fPriceMax'),
+                areaMin: num(value('fAreaMin')), areaMax: num(value('fAreaMax')),
+                q: value('searchInput').toLowerCase()
+            };
+        };
+        const matches = function (row, f) {
+            if (f.type && row.Type !== f.type) { return false; }
+            if (f.district && row.DistrictName !== f.district) { return false; }
+            const price = num(row.TradePrice);
+            if (f.priceMin !== null && (price === null || price < f.priceMin)) { return false; }
+            if (f.priceMax !== null && (price === null || price > f.priceMax)) { return false; }
+            const area = num(row.Area);
+            if (f.areaMin !== null && (area === null || area < f.areaMin)) { return false; }
+            if (f.areaMax !== null && (area === null || area > f.areaMax)) { return false; }
+            if (f.q) {
+                const text = [row.Type, row.PriceCategory, row.Prefecture, row.Municipality, row.DistrictName, row.FloorPlan,
+                    row.Structure, row.Purpose, row.BuildingYear, row.Period].join(' ').toLowerCase();
+                if (text.indexOf(f.q) === -1) { return false; }
+            }
+            return true;
+        };
+        const sortRows = function () {
+            if (!state.sortKey) {
+                filteredRows.sort(function (a, b) { return a._id - b._id; });
+                return;
+            }
+            const getter = sortValue[state.sortKey];
+            filteredRows.sort(function (a, b) {
+                const x = getter(a);
+                const y = getter(b);
+                if (x === null && y === null) { return a._id - b._id; }
+                if (x === null) { return 1; }
+                if (y === null) { return -1; }
+                const diff = typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'ja');
+                return diff === 0 ? a._id - b._id : diff * state.sortDir;
+            });
+        };
+
+        const renderRows = function () {
+            const start = (state.page - 1) * PAGE_SIZE;
+            const pageRows = filteredRows.slice(start, start + PAGE_SIZE);
+            if (pageRows.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">条件に合う取引がありません。絞り込みを緩めてお試しください。</td></tr>';
+                return;
+            }
+            tableBody.innerHTML = pageRows.map(function (r) {
+                const area = num(r.Area);
+                return '<tr class="row-clickable' + (r._id === state.selectedId ? ' table-active' : '') + '" data-id="' + r._id + '" tabindex="0" title="クリックで航空写真に拡大">' +
+                    '<td>' + cell(r.Type) + '<div class="small text-muted">' + cell(r.PriceCategory) + '</div></td>' +
+                    '<td class="d-none d-xl-table-cell">' + cell(r.Prefecture) + '</td>' +
+                    '<td>' + cell(r.Municipality) + ' ' + escapeHtml(r.DistrictName || '') +
+                        '<div class="small text-muted d-xl-none">' + cell(r.Structure) + ' / ' + cell(r.Purpose) + '</div></td>' +
+                    '<td class="text-right text-nowrap" title="' + escapeHtml(num(r.TradePrice) === null ? '' : num(r.TradePrice).toLocaleString() + ' 円') + '">' + formatYen(r.TradePrice) + '</td>' +
+                    '<td class="text-right text-nowrap">' + (area === null ? '—' : escapeHtml(r.Area) + ' m²') + '</td>' +
+                    '<td>' + cell(r.BuildingYear) + '</td>' +
+                    '<td>' + cell(r.FloorPlan) + '</td>' +
+                    '<td class="d-none d-xl-table-cell">' + cell(r.Structure) + '</td>' +
+                    '<td class="d-none d-xl-table-cell">' + cell(r.Purpose) + '</td>' +
+                    '<td class="text-nowrap">' + cell(r.Period) + '</td></tr>';
+            }).join('');
+        };
+        const renderPager = function () {
+            const pages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+            if (pages <= 1) {
+                pager.innerHTML = '';
+                return;
+            }
+            const item = function (label, page, active, disabled) {
+                return '<li class="page-item' + (active ? ' active' : '') + (disabled ? ' disabled' : '') + '">' +
+                    '<button type="button" class="page-link" data-page="' + page + '"' + (disabled ? ' disabled' : '') + (active ? ' aria-current="page"' : '') + '>' + label + '</button></li>';
+            };
+            const cur = state.page;
+            let html = item('« 前へ', cur - 1, false, cur <= 1);
+            if (cur > 3) { html += item('1', 1, false, false); if (cur > 4) { html += item('…', cur, false, true); } }
+            for (let n = Math.max(1, cur - 2); n <= Math.min(pages, cur + 2); n++) { html += item(String(n), n, n === cur, false); }
+            if (cur < pages - 2) { if (cur < pages - 3) { html += item('…', cur, false, true); } html += item(String(pages), pages, false, false); }
+            html += item('次へ »', cur + 1, false, cur >= pages);
+            pager.innerHTML = '<ul class="pagination pagination-sm justify-content-center mb-0">' + html + '</ul>';
+        };
+        const renderSortState = function () {
+            sortButtons.forEach(function (button) {
+                const active = button.dataset.sort === state.sortKey;
+                button.parentElement.setAttribute('aria-sort', active ? (state.sortDir === 1 ? 'ascending' : 'descending') : 'none');
+                button.querySelector('.sort-icon').textContent = active ? (state.sortDir === 1 ? '▲' : '▼') : '';
+            });
+        };
+        const renderTable = function () {
+            renderRows();
+            renderPager();
+            renderSortState();
+            const pages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+            resultCount.textContent = filteredRows.length.toLocaleString() + ' 件' +
+                (filteredRows.length !== allRows.length ? '（全 ' + allRows.length.toLocaleString() + ' 件中）' : '') +
+                '　ページ ' + state.page + ' / ' + pages;
+        };
+
+        // 地図: 絞り込み後の全件をマーカーにする（座標のある行のみ）
+        const renderMap = function (fit) {
+            if (!mapReady) {
+                return;
+            }
+            clearLayerMarkers('price-points');
+            const coordinatesList = [];
+            let missing = 0;
+            let capped = false;
+            filteredRows.forEach(function (row) {
+                const coordinates = extractCoordinates(row);
+                if (!coordinates) {
+                    missing += 1;
+                    return;
                 }
+                if (coordinatesList.length >= MAX_MARKERS) {
+                    capped = true;
+                    return;
+                }
+                const price = toPriceNumber(row.TradePrice);
+                const formattedPrice = Number.isFinite(price) ? price.toLocaleString() + ' 円' : 'N/A';
+                layerMarkerRegistry['price-points'].push(mapAdapter.addPoint(row, coordinates, priceToColor(price), createPopupHtml(row, formattedPrice), function () {
+                    selectRow(row._id, false);
+                }));
+                coordinatesList.push(coordinates);
+            });
+            if (fit && coordinatesList.length > 0) {
+                mapAdapter.fitToBounds(coordinatesList);
+            }
+            applyLayerVisibility();
+            if (filteredRows.length === 0) {
+                setMapStatus('条件に合う取引がないため、地図に表示するものがありません。', 'warning');
+            } else if (coordinatesList.length === 0) {
+                setMapStatus('位置情報を取得できた取引がありません。', 'warning');
+            } else {
+                setMapStatus(modeName[currentMode] + 'モードで ' + coordinatesList.length.toLocaleString() + ' 件を表示中です。' +
+                    (capped ? ' 件数が多いため先頭' + MAX_MARKERS.toLocaleString() + '件までです。絞り込んでください。' : '') +
+                    (missing > 0 ? ' 位置未取得の ' + missing.toLocaleString() + ' 件は地図に出ません（ページを開き直すと順次取得します）。' : ''), 'success');
+            }
+        };
+
+        const applyFilters = function () {
+            const filters = readFilters();
+            filteredRows = allRows.filter(function (row) { return matches(row, filters); });
+            sortRows();
+            state.page = 1;
+            renderTable();
+            renderMap(true);
+        };
+
+        // 表の行を選択（マーカークリック時は表を該当ページへ送ってハイライト、行クリック時は地図を拡大）
+        const selectRow = function (id, zoomMap) {
+            const index = filteredRows.findIndex(function (r) { return r._id === id; });
+            if (index === -1) {
+                return;
+            }
+            state.selectedId = id;
+            state.page = Math.floor(index / PAGE_SIZE) + 1;
+            renderTable();
+            const tr = tableBody.querySelector('tr[data-id="' + id + '"]');
+            if (tr && !zoomMap) {
+                tr.scrollIntoView({block: 'center', behavior: 'smooth'});
+            }
+            if (zoomMap) {
+                focusTableRow(id);
+            }
+        };
+
+        // ---- イベント ----
+        fillSelect('fType', 'すべて', distinct('Type'));
+        fillSelect('fDistrict', 'すべて', distinct('DistrictName'));
+        let filterTimer = null;
+        filterIds.forEach(function (id) {
+            const element = document.getElementById(id);
+            element.addEventListener(element.tagName === 'SELECT' ? 'change' : 'input', function () {
+                clearTimeout(filterTimer);
+                filterTimer = setTimeout(applyFilters, element.tagName === 'SELECT' ? 0 : 250);
             });
         });
+        document.getElementById('fClear').addEventListener('click', function () {
+            filterIds.forEach(function (id) { document.getElementById(id).value = ''; });
+            applyFilters();
+        });
+        sortButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                const key = button.dataset.sort;
+                state.sortDir = state.sortKey === key ? -state.sortDir : 1;
+                state.sortKey = key;
+                sortRows();
+                state.page = 1;
+                renderTable();
+            });
+        });
+        pager.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-page]');
+            if (!button || button.disabled) {
+                return;
+            }
+            state.page = Number(button.dataset.page);
+            renderTable();
+            document.getElementById('dataTable').scrollIntoView({block: 'start', behavior: 'smooth'});
+        });
+        const onRowActivate = function (event) {
+            const tr = event.target.closest('tr[data-id]');
+            if (tr && (event.type === 'click' || event.key === 'Enter')) {
+                selectRow(Number(tr.dataset.id), true);
+            }
+        };
+        tableBody.addEventListener('click', onRowActivate);
+        tableBody.addEventListener('keydown', onRowActivate);
 
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('keyup', function () {
-            const filter = searchInput.value.toLowerCase();
-            const rows = document.querySelectorAll('#dataTable tbody tr');
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                let match = false;
-                cells.forEach(cell => {
-                    if (cell.textContent.toLowerCase().includes(filter)) {
-                        match = true;
+        renderTable();
+
+        mapAdapter.ready(function () {
+            mapReady = true;
+            // まず選択した市区町村へ地図を寄せ、続けてマーカーを描画する
+            const firstRow = allRows[0];
+            const cityName = firstRow ? buildAddress({Prefecture: firstRow.Prefecture, Municipality: firstRow.Municipality}) : null;
+            if (cityName) {
+                geocodeAddress(cityName).then(function (coordinates) {
+                    if (coordinates) {
+                        mapAdapter.centerOn(coordinates, 12);
                     }
-                });
-                row.style.display = match ? '' : 'none';
+                }).catch(function () {});
+            }
+            renderMap(true);
+            reloadActiveApiLayers();
+
+            let moveRefreshTimer = null;
+            mapAdapter.onMoveEnd(function () {
+                clearTimeout(moveRefreshTimer);
+                moveRefreshTimer = setTimeout(reloadActiveApiLayers, 700);
             });
         });
     });

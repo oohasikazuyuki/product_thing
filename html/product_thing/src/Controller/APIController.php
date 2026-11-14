@@ -224,24 +224,16 @@ class APIController extends AppController
             $data = [];
         }
 
-        // ページネーションの設定
-        $page = $this->request->getQuery('page', 1);
-        $limit = 30;
-        $total = 0;
-        $start = ($page - 1) * $limit;
-        $paginatedData = [];
-        if(isset($data['data'])){
-            $paginatedData = array_slice($data['data'], $start, $limit);
-            $total = count($data['data']);
+        // 表・地図とも画面側(JS)で絞り込み・並べ替え・ページ送りするため、必要な列だけにして全行を渡す
+        $columns = ['PriceCategory', 'Type', 'Prefecture', 'Municipality', 'DistrictName', 'TradePrice', 'Area',
+            'BuildingYear', 'FloorPlan', 'Structure', 'Purpose', 'Period', 'Longitude', 'Latitude'];
+        $rows = [];
+        foreach (($data['data'] ?? []) as $record) {
+            if (is_array($record)) {
+                $rows[] = array_intersect_key($record, array_flip($columns));
+            }
         }
-
-
-        $this->set('data', $paginatedData);
-
-        $this->set('page', $page);
-        $this->set('limit', $limit);
-        $this->set('total', $total);
-        $this->set('pages', ceil($total / $limit));
+        $this->set('rows', $rows);
         $this->set('googleMapsApiKey', env('GOOGLE_MAPS_API_KEY') ?: null);
 
     }
