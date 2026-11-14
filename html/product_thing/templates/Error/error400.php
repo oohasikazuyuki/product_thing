@@ -35,8 +35,5 @@ if (Configure::read('debug')) :
     $this->end();
 endif;
 ?>
-<h2><?= h($message) ?></h2>
-<p class="error">
-    <strong><?= __d('cake', 'Error') ?>: </strong>
-    <?= __d('cake', 'The requested address {0} was not found on this server.', "<strong>'{$url}'</strong>") ?>
-</p>
+<h1 class="h4">ページが見つかりません</h1>
+<p class="text-muted mb-0">お探しのページは移動または削除された可能性があります。URLをご確認ください。</p>

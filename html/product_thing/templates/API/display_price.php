@@ -83,7 +83,7 @@ $renderPager = function () use ($page, $pages, $pageUrl) {
 
 <?php if (!empty($data)): ?>
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
-        <input type="search" id="searchInput" class="form-control form-control-sm w-auto mb-2" style="min-width:16rem" placeholder="このページ内を絞り込み（例：神奈川区）" aria-label="このページ内を絞り込み">
+        <input type="search" id="searchInput" class="form-control form-control-sm w-auto mb-2" style="min-width:16rem" placeholder="絞り込み（例：岩本町）" aria-label="このページ内を絞り込み">
         <small class="text-muted mb-2"><?= __('ページ {0} / {1}（全{2}件）', $page, $pages, $total) ?></small>
     </div>
     <div class="table-card mb-3">

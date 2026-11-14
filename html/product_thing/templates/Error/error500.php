@@ -40,8 +40,5 @@ if (Configure::read('debug')) :
     $this->end();
 endif;
 ?>
-<h2><?= __d('cake', 'An Internal Error Has Occurred.') ?></h2>
-<p class="error">
-    <strong><?= __d('cake', 'Error') ?>: </strong>
-    <?= h($message) ?>
-</p>
+<h1 class="h4">エラーが発生しました</h1>
+<p class="text-muted mb-0">しばらくしてからもう一度お試しください。解消しない場合は、操作内容とあわせて管理者にお知らせください。</p>

@@ -11,7 +11,7 @@
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div id="map" class="map-canvas"></div>
-    <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です…</div>
+    <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です（十数秒かかることがあります）…</div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>

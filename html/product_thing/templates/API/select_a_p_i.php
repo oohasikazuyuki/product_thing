@@ -81,12 +81,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const cityStatus = document.getElementById('cityStatus');
     const button = document.getElementById('searchButton');
     let cityRequest = 0;
+    city.disabled = !prefecture.value;
+    if (!prefecture.value) { cityStatus.textContent = '先に都道府県を選んでください。'; }
 
     // 市区町村だけ差し替える（ページ遷移しない）。同じページをfetchして #city の選択肢を取り出す。
     const refreshCities = async function () {
         const current = ++cityRequest;
         city.innerHTML = '<option value="">選択してください</option>';
-        if (!prefecture.value) { cityStatus.textContent = ''; return; }
+        if (!prefecture.value) { cityStatus.textContent = '先に都道府県を選んでください。'; city.disabled = true; return; }
         cityStatus.textContent = '市区町村を読み込み中…';
         city.disabled = true;
         try {
