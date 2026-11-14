@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use Cake\Cache\Cache;
 use Cake\Http\Exception\BadRequestException;
 
 /**
@@ -198,6 +199,12 @@ class RentalSearchService
             $params['rent_max'] = (string)$query['month_money_room_h'];
         }
 
+        $cacheKey = 'rental_' . md5(http_build_query($params));
+        $cached = Cache::read($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
         $response = $this->httpGet(
             'https://' . self::RAPIDAPI_HOST . '/search-rentals?' . http_build_query($params),
             [
@@ -240,14 +247,21 @@ class RentalSearchService
             }
         }
 
-        return [
+        $result = [
             'provider' => 'rapidapi_suumo',
             'provider_label' => 'RapidAPI SUUMO Japan Real Estate',
             'total' => $extracted['total'] > 0 ? $extracted['total'] : count($rows),
+            'page' => $query['page'],
+            'per_page' => 20,
             'items' => $rows,
             'demo' => false,
             'message' => count($rows) === 0 ? 'APIは成功しましたが物件が0件でした。条件を緩めて再検索してください。' : null,
         ];
+        if (count($rows) > 0) {
+            Cache::write($cacheKey, $result);
+        }
+
+        return $result;
     }
 
     /**

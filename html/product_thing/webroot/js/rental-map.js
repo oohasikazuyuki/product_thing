@@ -6,6 +6,10 @@
     const defaultZoom = 12;
     let map;
     let markers = [];
+    let markersById = {};
+    let currentPage = 1;
+    let plottedCount = 0;
+    const PER_PAGE = 20;
     let mapReady = false;
 
     const escapeHtml = function (value) {
@@ -104,6 +108,28 @@
             marker.remove();
         });
         markers = [];
+        markersById = {};
+    };
+
+    // 一覧のカードと地図のマーカーを連動させる（地図で見る／マーカークリック）
+    const activateItem = function (id, flyToMarker) {
+        document.querySelectorAll('.listing-item.is-active').forEach(function (el) {
+            el.classList.remove('is-active');
+        });
+        const card = document.querySelector('.listing-item[data-id="' + String(id).replace(/"/g, '') + '"]');
+        if (card) {
+            card.classList.add('is-active');
+            if (!flyToMarker) {
+                card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+        const entry = markersById[id];
+        if (flyToMarker && entry && map && mapReady) {
+            map.flyTo({ center: entry.lngLat, zoom: 16, essential: true });
+            if (!entry.marker.getPopup().isOpen()) {
+                entry.marker.togglePopup();
+            }
+        }
     };
 
     const resetMapView = function () {
@@ -130,6 +156,7 @@
         }
         clearMarkers();
         const plotted = [];
+        plottedCount = 0;
         (items || []).forEach(function (item) {
             const lat = Number(item.lat);
             const lng = Number(item.lng);
@@ -141,7 +168,12 @@
                 .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml(item)))
                 .addTo(map);
             markers.push(marker);
+            markersById[item.id] = { marker: marker, lngLat: [lng, lat] };
+            marker.getElement().addEventListener('click', function () {
+                activateItem(item.id, false);
+            });
             plotted.push([lng, lat]);
+            plottedCount += 1;
         });
 
         if (plotted.length === 0) {
@@ -186,7 +218,9 @@
             return;
         }
 
-        setResultCount((payload.total || items.length) + ' 件');
+        const total = payload.total || items.length;
+        const from = (currentPage - 1) * (payload.per_page || PER_PAGE) + 1;
+        setResultCount(from.toLocaleString() + '–' + (from + items.length - 1).toLocaleString() + ' / ' + Number(total).toLocaleString() + ' 件');
         const frag = document.createDocumentFragment();
         items.forEach(function (item) {
             const el = document.createElement(item.detail_url ? 'a' : 'div');
@@ -196,6 +230,7 @@
                 el.rel = 'noopener';
             }
             el.className = 'listing-item';
+            el.dataset.id = item.id;
             const tags = [];
             if (item.layout) {
                 tags.push(item.layout);
@@ -219,16 +254,40 @@
                         return '<span>' + escapeHtml(t) + '</span>';
                     }).join('') + '</div>'
                     : '') +
+                (markersById[item.id]
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
+                    : '') +
                 '</div>';
             frag.appendChild(el);
         });
         root.appendChild(frag);
     };
 
-    const searchRentals = async function () {
+    const renderPager = function (payload) {
+        const pager = document.getElementById('rentalPager');
+        if (!pager) {
+            return;
+        }
+        const total = Number(payload.total) || 0;
+        const pages = Math.ceil(total / (Number(payload.per_page) || PER_PAGE));
+        if (pages <= 1) {
+            pager.innerHTML = '';
+            return;
+        }
+        const page = currentPage;
+        pager.innerHTML = '<ul class="pagination pagination-sm justify-content-center mb-0">' +
+            '<li class="page-item' + (page <= 1 ? ' disabled' : '') + '"><button type="button" class="page-link" data-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + '>« 前へ</button></li>' +
+            '<li class="page-item disabled"><span class="page-link">' + page + ' / ' + pages + '</span></li>' +
+            '<li class="page-item' + (page >= pages ? ' disabled' : '') + '"><button type="button" class="page-link" data-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + '>次へ »</button></li>' +
+            '</ul>';
+    };
+
+    const searchRentals = async function (page) {
+        currentPage = page || 1;
         const form = document.getElementById('rentalSearchForm');
         const formData = new FormData(form);
         const params = new URLSearchParams();
+        params.set('page', String(currentPage));
         formData.forEach(function (value, key) {
             if (String(value).trim() !== '') {
                 params.set(key, String(value).trim());
@@ -247,11 +306,13 @@
                 setResultCount('—');
                 return;
             }
-            renderResults(payload);
             renderMap(payload.items || []);
+            renderResults(payload);
+            renderPager(payload);
             const mode = payload.demo ? 'デモ' : 'ライブ';
             setStatus(
                 mode + ' · ' + (payload.provider_label || payload.provider || '') +
+                ((payload.items || []).length > 0 ? ' · 地図に ' + plottedCount + ' / ' + (payload.items || []).length + ' 件（位置情報のない物件は一覧のみ）' : '') +
                 (payload.message ? ' — ' + payload.message : '')
             );
             const chip = document.getElementById('providerChip');
@@ -312,13 +373,34 @@
 
         document.getElementById('rentalSearchForm').addEventListener('submit', function (event) {
             event.preventDefault();
-            searchRentals();
+            searchRentals(1);
         });
 
         document.getElementById('prefecture').addEventListener('change', function () {
             loadCities('').then(function () {
-                searchRentals();
+                searchRentals(1);
             });
+        });
+
+        document.getElementById('city').addEventListener('change', function () {
+            searchRentals(1);
+        });
+
+        document.getElementById('rentalPager').addEventListener('click', function (event) {
+            const button = event.target.closest('[data-page]');
+            if (button && !button.disabled) {
+                searchRentals(Number(button.dataset.page));
+                document.getElementById('rentalResults').scrollTop = 0;
+            }
+        });
+
+        document.getElementById('rentalResults').addEventListener('click', function (event) {
+            const locate = event.target.closest('[data-locate]');
+            if (locate) {
+                event.preventDefault();
+                event.stopPropagation();
+                activateItem(locate.dataset.locate, true);
+            }
         });
 
         map.on('load', function () {
@@ -326,7 +408,7 @@
             mapReady = true;
             resetMapView();
             loadCities(config.defaultCity || '').then(function () {
-                searchRentals();
+                searchRentals(1);
             });
         });
 

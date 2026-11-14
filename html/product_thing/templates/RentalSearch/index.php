@@ -74,6 +74,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
         <div id="rentalResults" class="listing-scroll">
             <div class="listing-empty">条件を指定して検索してください。</div>
         </div>
+        <nav id="rentalPager" class="mt-2" aria-label="ページ送り"></nav>
     </div>
 </div>
 
