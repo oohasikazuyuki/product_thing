@@ -1,154 +1,121 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>不動産取引価格情報</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        .table th, .table td {
-            vertical-align: middle;
-        }
-        .table th {
-            background-color: #343a40;
-            color: #fff;
-        }
-        #map {
-            width: 100%;
-            height: 420px;
-            border-radius: 8px;
-        }
-        .mode-btn.is-active {
-            font-weight: 700;
-        }
-    </style>
-</head>
-<body>
-<div class="container mt-5">
-    <h1 class="mb-4 text-center">
-        不動産取引価格情報
-    </h1>
+<?php
+$this->assign('title', '取引価格結果');
+$this->assign('containerClass', 'container-fluid px-md-4');
+$query = $this->request->getQuery();
+$page = (int)$page;
+$pages = (int)$pages;
+$first = (!empty($data) && is_array($data) && is_array(reset($data))) ? reset($data) : [];
+$summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? '') . ' ' . ($query['year'] ?? '') . '年');
+$cell = fn($v) => ($v === null || $v === '') ? '—' : h((string)$v);
+$yen = function ($v) {
+    if (!is_numeric($v)) return '—';
+    $v = (float)$v;
+    $label = $v >= 100000000 ? rtrim(rtrim(number_format($v / 100000000, 2), '0'), '.') . '億円' : number_format($v / 10000) . '万円';
+    return $label;
+};
+$pageUrl = fn(int $n) => ['?' => array_merge($query, ['page' => $n])];
+$renderPager = function () use ($page, $pages, $pageUrl) {
+    if ($pages <= 1) return '';
+    $items = [];
+    $add = function (string $label, ?int $n, bool $active = false) use (&$items, $pageUrl) {
+        $link = $n === null
+            ? '<span class="page-link">' . h($label) . '</span>'
+            : $this->Html->link($label, $pageUrl($n), ['class' => 'page-link']);
+        $items[] = '<li class="page-item' . ($active ? ' active' : '') . ($n === null && !$active ? ' disabled' : '') . '">' . $link . '</li>';
+    };
+    $add('« 前へ', $page > 1 ? $page - 1 : null);
+    if ($page > 3) { $add('1', 1); if ($page > 4) $add('…', null); }
+    for ($n = max(1, $page - 2); $n <= min($pages, $page + 2); $n++) $add((string)$n, $n === $page ? null : $n, $n === $page);
+    if ($page < $pages - 2) { if ($page < $pages - 3) $add('…', null); $add((string)$pages, (int)$pages); }
+    $add('次へ »', $page < $pages ? $page + 1 : null);
+    return '<nav aria-label="ページ送り"><ul class="pagination pagination-sm justify-content-center mb-0">' . implode('', $items) . '</ul></nav>';
+};
+?>
+<div class="page-header d-flex flex-wrap justify-content-between align-items-end">
+    <div>
+        <h1>取引価格結果</h1>
+        <p><?= h($summary) ?>　<?= $total ? number_format((int)$total) . '件' : '' ?></p>
+    </div>
+    <?= $this->Html->link('条件を変更', ['controller' => 'PriceSearch', 'action' => 'selectAPI', '?' => ['prefecture' => $query['area'] ?? '', 'year' => $query['year'] ?? '']], ['class' => 'btn btn-outline-success btn-sm']) ?>
+</div>
 
-    <div class="mb-4">
-        <h2 class="h5 mb-3">地図表示</h2>
-        <div class="d-flex flex-wrap align-items-center mb-3">
-            <span class="mr-3">分析モード:</span>
-            <div class="btn-group btn-group-sm" role="group" aria-label="mode-switch">
-                <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
-                <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
-                <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
-                <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
-            </div>
-        </div>
+<div class="row">
+    <div class="col-lg-3 mb-3">
         <div class="card mb-3">
             <div class="card-body p-3">
-                <h3 class="h6 mb-2">レイヤー表示</h3>
+                <h2 class="h6">分析モード</h2>
+                <div class="btn-group-vertical btn-group-sm w-100" role="group" aria-label="分析モード">
+                    <button type="button" class="btn btn-outline-primary mode-btn is-active" data-mode="living">お買い物・生活</button>
+                    <button type="button" class="btn btn-outline-danger mode-btn" data-mode="safety">安心・防災</button>
+                    <button type="button" class="btn btn-outline-dark mode-btn" data-mode="invest">プロ・投資</button>
+                    <button type="button" class="btn btn-outline-success mode-btn" data-mode="nature">自然環境</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body p-3">
+                <h2 class="h6">レイヤー表示</h2>
                 <div id="layerControls" class="mb-0"></div>
             </div>
         </div>
-        <div id="map" aria-label="不動産データの地図"></div>
-        <div id="mapStatus" class="alert alert-secondary mt-3 mb-0">
-            地図を準備中です。
-        </div>
     </div>
-
-    <div class="row mb-4">
-        <div class="col-md-6 offset-md-3">
-            <input type="text" id="searchInput" class="form-control" placeholder="検索例：神奈川区">
-        </div>
+    <div class="col-lg-9 mb-3">
+        <div id="map" class="map-canvas" aria-label="不動産データの地図"></div>
+        <div id="mapStatus" class="alert alert-secondary mt-3 mb-0" role="status">地図を準備中です。</div>
     </div>
-
-    <!-- ページナビゲーション (上部) -->
-    <?php if ($page > 1 || $page < $pages): ?>
-        <nav aria-label="Page navigation example" class="mb-4">
-            <ul class="pagination justify-content-center">
-                <?php if ($page > 1): ?>
-                    <li class="page-item">
-                        <?= $this->Html->link('< ' . __('前へ'), ['?' => array_merge($this->request->getQuery(), ['page' => $page - 1])], ['class' => 'page-link', 'escape' => false]) ?>
-                    </li>
-                <?php endif; ?>
-
-                <?php if ($page < $pages): ?>
-                    <li class="page-item">
-                        <?= $this->Html->link(__('次へ') . ' >', ['?' => array_merge($this->request->getQuery(), ['page' => $page + 1])], ['class' => 'page-link', 'escape' => false]) ?>
-                    </li>
-                <?php endif; ?>
-            </ul>
-        </nav>
-    <?php endif; ?>
-
-    <?php if (!empty($data)): ?>
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered table-hover" id="dataTable">
-                <thead>
-                <tr>
-                    <th class="text-center bg-success">カテゴリ</th>
-                    <th class="text-center bg-success">種類</th>
-                    <th class="text-center bg-success">都道府県</th>
-                    <th class="text-center bg-success">市区町村</th>
-                    <th class="text-center bg-success">地区名</th>
-                    <th class="text-center bg-success">取引価格 (円)</th>
-                    <th class="text-center bg-success">面積 (m²)</th>
-                    <th class="text-center bg-success">建築年</th>
-                    <th class="text-center bg-success">間取り</th>
-                    <th class="text-center bg-success">建物構造</th>
-                    <th class="text-center bg-success">用途</th>
-                    <th class="text-center bg-success">取引時期</th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($data as $record): ?>
-                    <?php if (is_array($record)): ?>
-                        <tr>
-                            <td class="text-center"><?= htmlspecialchars($record['PriceCategory'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Type'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Prefecture'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Municipality'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['DistrictName'] ?? 'N/A'); ?></td>
-                            <td class="text-right"><?= htmlspecialchars(isset($record['TradePrice']) ? number_format($record['TradePrice']) . ' 円' : 'N/A'); ?></td>
-                            <td class="text-right"><?= htmlspecialchars($record['Area'] ?? 'N/A'); ?> m²</td>
-                            <td class="text-center"><?= htmlspecialchars($record['BuildingYear'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['FloorPlan'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Structure'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Purpose'] ?? 'N/A'); ?></td>
-                            <td class="text-center"><?= htmlspecialchars($record['Period'] ?? 'N/A'); ?></td>
-                        </tr>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="12">Invalid data format: <?= htmlspecialchars($record); ?></td>
-                        </tr>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- ページナビゲーション (下部) -->
-        <nav aria-label="Page navigation example" class="mt-4">
-            <ul class="pagination justify-content-center">
-                <?php if ($page > 1): ?>
-                    <li class="page-item">
-                        <?= $this->Html->link('< ' . __('前へ'), ['?' => array_merge($this->request->getQuery(), ['page' => $page - 1])], ['class' => 'page-link', 'escape' => false]) ?>
-                    </li>
-                <?php endif; ?>
-
-                <?php if ($page < $pages): ?>
-                    <li class="page-item">
-                        <?= $this->Html->link(__('次へ') . ' >', ['?' => array_merge($this->request->getQuery(), ['page' => $page + 1])], ['class' => 'page-link', 'escape' => false]) ?>
-                    </li>
-                <?php endif; ?>
-            </ul>
-        </nav>
-        <p class="text-center mt-3"><?= __('ページ {0} / {1} (全{2}件)', $page, $pages, $total) ?></p>
-    <?php else: ?>
-        <p class="alert alert-warning text-center">データがありません。</p>
-    <?php endif; ?>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<?php if (!empty($data)): ?>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+        <input type="search" id="searchInput" class="form-control form-control-sm w-auto mb-2" style="min-width:16rem" placeholder="このページ内を絞り込み（例：神奈川区）" aria-label="このページ内を絞り込み">
+        <small class="text-muted mb-2"><?= __('ページ {0} / {1}（全{2}件）', $page, $pages, $total) ?></small>
+    </div>
+    <div class="table-responsive mb-3">
+        <table class="table table-striped table-hover table-sm" id="dataTable">
+            <thead>
+            <tr>
+                <th>種類</th>
+                <th class="d-none d-xl-table-cell">都道府県</th>
+                <th>市区町村・地区</th>
+                <th class="text-right">取引価格</th>
+                <th class="text-right">面積</th>
+                <th>建築年</th>
+                <th>間取り</th>
+                <th class="d-none d-xl-table-cell">構造</th>
+                <th class="d-none d-xl-table-cell">用途</th>
+                <th>取引時期</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($data as $record): ?>
+                <?php if (is_array($record)): ?>
+                    <tr>
+                        <td><?= $cell($record['Type'] ?? null) ?><div class="small text-muted"><?= $cell($record['PriceCategory'] ?? null) ?></div></td>
+                        <td class="d-none d-xl-table-cell"><?= $cell($record['Prefecture'] ?? null) ?></td>
+                        <td><?= $cell($record['Municipality'] ?? null) ?> <?= h($record['DistrictName'] ?? '') ?>
+                            <div class="small text-muted d-xl-none"><?= $cell($record['Structure'] ?? null) ?> / <?= $cell($record['Purpose'] ?? null) ?></div></td>
+                        <td class="text-right text-nowrap" title="<?= isset($record['TradePrice']) ? h(number_format((float)$record['TradePrice']) . ' 円') : '' ?>"><?= h($yen($record['TradePrice'] ?? null)) ?></td>
+                        <td class="text-right text-nowrap"><?= isset($record['Area']) && $record['Area'] !== '' ? h($record['Area']) . ' m²' : '—' ?></td>
+                        <td><?= $cell($record['BuildingYear'] ?? null) ?></td>
+                        <td><?= $cell($record['FloorPlan'] ?? null) ?></td>
+                        <td class="d-none d-xl-table-cell"><?= $cell($record['Structure'] ?? null) ?></td>
+                        <td class="d-none d-xl-table-cell"><?= $cell($record['Purpose'] ?? null) ?></td>
+                        <td class="text-nowrap"><?= $cell($record['Period'] ?? null) ?></td>
+                    </tr>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?= $renderPager() ?>
+<?php else: ?>
+    <div class="alert alert-warning text-center">条件に合うデータがありません。条件を変更してお試しください。</div>
+<?php endif; ?>
+
+<?php $this->start('css'); ?>
+<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
+<?php $this->end(); ?>
+<?php $this->start('script'); ?>
 <?php if (!empty($googleMapsApiKey)): ?>
 <script src="https://maps.googleapis.com/maps/api/js?key=<?= urlencode($googleMapsApiKey) ?>&libraries=streetView"></script>
 <?php else: ?>
@@ -761,5 +728,4 @@ if (!empty($data) && is_array($data)) {
         });
     });
 </script>
-</body>
-</html>
+<?php $this->end(); ?>

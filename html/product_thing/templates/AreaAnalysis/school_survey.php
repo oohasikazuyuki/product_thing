@@ -1,37 +1,81 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学校・生活調査</title>
-    <?= $this->Html->css('https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css') ?>
-    <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        #map { height: 520px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-<div class="container mt-4 mb-4">
-    <h1 class="h4">学校・生活調査画面</h1>
-    <p class="text-muted mb-2">取引価格に加えて、学校区・学校・保育園・医療/福祉施設を重ねて確認できます。</p>
-    <p class="small text-muted">出典：不動産情報ライブラリ（国土交通省）</p>
-    <div class="mb-3">
-        <?= $this->Html->link('価格検索へ戻る', ['controller' => 'PriceSearch', 'action' => 'selectAPI'], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
-        <?= $this->Html->link('防災調査へ', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
+<?php $this->assign('title', '学校・生活調査'); ?>
+<?php $this->start('css'); ?>
+<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+        #surveyList { max-height: 260px; overflow: auto; }
+</style>
+<?php $this->end(); ?>
+    <div class="page-header">
+        <h1>学校・生活調査</h1>
+        <p>取引価格に加えて、学校区・学校・保育園・医療/福祉施設を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
     </div>
-    <div id="map"></div>
-    <div id="status" class="alert alert-secondary mt-3 mb-0">読み込み中...</div>
-</div>
-
+    <div class="mb-3">
+        <?= $this->Html->link('防災調査へ', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-primary btn-sm']) ?>
+    </div>
+    <?= $this->element('analysis_filter', ['targetAction' => 'schoolSurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
+    <div class="row">
+        <div class="col-lg-8">
+            <div id="map" class="map-canvas"></div>
+            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です…</div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6">表示レイヤー</h2>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt004" checked><label class="form-check-label">小学校区</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt005" checked><label class="form-check-label">中学校区</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt006" checked><label class="form-check-label">学校</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt007" checked><label class="form-check-label">保育園・幼稚園</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt010" checked><label class="form-check-label">医療機関</label></div>
+                    <div class="form-check"><input class="form-check-input layer-toggle" type="checkbox" data-layer="xkt011" checked><label class="form-check-label">福祉施設</label></div>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6">調査サマリー</h2>
+                    <table class="table table-sm mb-0">
+                        <tbody id="surveySummary"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6">調査対象（抜粋）</h2>
+                    <ul id="surveyList" class="small mb-0 pl-3"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
     const area = <?= json_encode($area, JSON_UNESCAPED_UNICODE) ?>;
     const city = <?= json_encode($city, JSON_UNESCAPED_UNICODE) ?>;
     const year = <?= json_encode($year, JSON_UNESCAPED_UNICODE) ?>;
+    const district = <?= json_encode($district, JSON_UNESCAPED_UNICODE) ?>;
     const layerDataUrl = <?= json_encode($this->Url->build(['controller' => 'LayerData', 'action' => 'layerData'])) ?>;
     const mlitGeoJsonUrl = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'])) ?>;
     const status = document.getElementById('status');
+    const summaryEl = document.getElementById('surveySummary');
+    const surveyListEl = document.getElementById('surveyList');
+    const markerRegistry = {
+        xit001: [],
+        xkt004: [],
+        xkt005: [],
+        xkt006: [],
+        xkt007: [],
+        xkt010: [],
+        xkt011: []
+    };
+    const layerDefs = [
+        {key: 'xkt004', apiId: 'XKT004', color: '#2563eb', label: '小学校区'},
+        {key: 'xkt005', apiId: 'XKT005', color: '#0ea5e9', label: '中学校区'},
+        {key: 'xkt006', apiId: 'XKT006', color: '#14b8a6', label: '学校'},
+        {key: 'xkt007', apiId: 'XKT007', color: '#10b981', label: '保育園・幼稚園'},
+        {key: 'xkt010', apiId: 'XKT010', color: '#ef4444', label: '医療機関'},
+        {key: 'xkt011', apiId: 'XKT011', color: '#ec4899', label: '福祉施設'}
+    ];
 
     const map = new maplibregl.Map({
         container: 'map',
@@ -57,59 +101,141 @@ document.addEventListener('DOMContentLoaded', async function () {
         return null;
     };
 
-    const addFeatures = (features, color, label) => {
+    const addFeatures = (features, color, label, layerKey) => {
         let count = 0;
+        const samples = [];
         features.forEach((f) => {
             const c = featureCoord(f);
             if (!c) return;
             const p = f.properties || {};
-            new maplibregl.Marker({color}).setLngLat(c).setPopup(
+            const marker = new maplibregl.Marker({color}).setLngLat(c).setPopup(
                 new maplibregl.Popup({offset: 24}).setHTML('<strong>' + label + '</strong><br>' + Object.keys(p).slice(0, 4).map((k) => k + ': ' + p[k]).join('<br>'))
             ).addTo(map);
+            markerRegistry[layerKey].push(marker);
             count += 1;
+            if (samples.length < 5) {
+                const value = Object.keys(p).slice(0, 2).map((k) => p[k]).join(' / ');
+                samples.push((value || '名称不明') + ' (' + label + ')');
+            }
         });
-        return count;
+        return {count, samples};
     };
 
-    const fetchLayer = async (apiId, color, label) => {
+    const fitMapToFeatures = (features) => {
+        const bounds = new maplibregl.LngLatBounds();
+        let hasPoint = false;
+        features.forEach((f) => {
+            const c = featureCoord(f);
+            if (!c) return;
+            bounds.extend(c);
+            hasPoint = true;
+        });
+        if (hasPoint) {
+            map.fitBounds(bounds, {padding: 40, maxZoom: 14});
+        }
+    };
+
+    const fetchLayer = async (def) => {
         const center = map.getCenter();
         const z = 14;
         const params = new URLSearchParams({
-            api_id: apiId,
+            api_id: def.apiId,
             response_format: 'geojson',
             z: String(z),
             x: String(lonToTile(center.lng, z)),
             y: String(latToTile(center.lat, z))
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
-        if (!res.ok) return 0;
+        if (!res.ok) {
+            return {count: 0, samples: [], error: 'レイヤーAPIの取得に失敗しました: ' + def.apiId};
+        }
         const payload = await res.json();
+        if (payload && payload.success === false) {
+            return {count: 0, samples: [], error: (payload.message || ('レイヤーAPIエラー: ' + def.apiId))};
+        }
         const features = payload && payload.body && Array.isArray(payload.body.features) ? payload.body.features : [];
-        return addFeatures(features, color, label);
+        const result = addFeatures(features, def.color, def.label, def.key);
+        return {count: result.count, samples: result.samples, error: null};
+    };
+
+    const toggleLayer = (layerKey, visible) => {
+        markerRegistry[layerKey].forEach((marker) => {
+            marker.getElement().style.display = visible ? '' : 'none';
+        });
+    };
+
+    const renderSummary = (summaryRows) => {
+        summaryEl.innerHTML = summaryRows.map((r) => '<tr><th>' + r.label + '</th><td class="text-right">' + r.count + '件</td></tr>').join('');
+    };
+
+    const renderList = (items) => {
+        surveyListEl.innerHTML = items.length ? items.map((item) => '<li>' + item + '</li>').join('') : '<li>対象データなし</li>';
     };
 
     map.on('load', async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
+            if (!txRes.ok) {
+                throw new Error('取引データAPIの取得に失敗しました。');
+            }
             const txGeo = await txRes.json();
-            const txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
-            const txCount = addFeatures(txFeatures, '#16a34a', '取引価格');
+            if (txGeo && txGeo.error) {
+                throw new Error(txGeo.error);
+            }
+            const txWarning = txGeo && txGeo.warning ? txGeo.warning : null;
+            let txFeatures = Array.isArray(txGeo.features) ? txGeo.features : [];
+            const txTotalCount = Number(txGeo && txGeo.transaction_count ? txGeo.transaction_count : txFeatures.length);
+            if (district) {
+                txFeatures = txFeatures.filter((f) => {
+                    const p = f && f.properties ? f.properties : {};
+                    return (p.DistrictName || '') === district;
+                });
+            }
+            const tx = addFeatures(txFeatures, '#16a34a', '取引価格', 'xit001');
+            fitMapToFeatures(txFeatures);
 
-            const c1 = await fetchLayer('XKT004', '#2563eb', '小学校区');
-            const c2 = await fetchLayer('XKT005', '#0ea5e9', '中学校区');
-            const c3 = await fetchLayer('XKT006', '#14b8a6', '学校');
-            const c4 = await fetchLayer('XKT007', '#10b981', '保育園・幼稚園');
-            const c5 = await fetchLayer('XKT010', '#ef4444', '医療機関');
-            const c6 = await fetchLayer('XKT011', '#ec4899', '福祉施設');
+            const layerResults = [];
+            const layerErrors = [];
+            for (const def of layerDefs) {
+                const result = await fetchLayer(def);
+                if (result.error) {
+                    layerErrors.push(result.error);
+                }
+                layerResults.push({label: def.label, key: def.key, count: result.count, samples: result.samples});
+            }
 
-            status.className = 'alert alert-success mt-3 mb-0';
-            status.textContent = '取引価格: ' + txCount + '件 / 小学校区: ' + c1 + '件 / 中学校区: ' + c2 + '件 / 学校: ' + c3 + '件 / 保育園等: ' + c4 + '件 / 医療: ' + c5 + '件 / 福祉: ' + c6 + '件';
+            const displayTxCount = tx.count > 0 ? tx.count : txTotalCount;
+            renderSummary([{label: '取引価格', count: displayTxCount}].concat(layerResults.map((r) => ({label: r.label, count: r.count}))));
+            renderList(layerResults.flatMap((r) => r.samples).slice(0, 12));
+
+            document.querySelectorAll('.layer-toggle').forEach((checkbox) => {
+                checkbox.addEventListener('change', function () {
+                    toggleLayer(checkbox.dataset.layer, checkbox.checked);
+                });
+            });
+
+            const warnings = [];
+            if (txWarning) {
+                warnings.push(txWarning);
+            }
+            if (tx.count === 0 && txTotalCount > 0) {
+                warnings.push('取引データは' + txTotalCount + '件ありますが、座標点が取得できないため地図には表示できません。');
+            }
+            warnings.push(...layerErrors);
+
+            if (warnings.length > 0) {
+                const isFallbackOnly = warnings.length === 1 && txWarning && layerErrors.length === 0 && txWarning.indexOf('住所ジオコーディングで補完表示しています') !== -1;
+                status.className = (isFallbackOnly ? 'alert alert-info' : 'alert alert-warning') + ' mt-3 mb-0';
+                status.textContent = (isFallbackOnly ? '補完表示中: ' : '一部データの取得に失敗しました: ') + warnings.join(' / ');
+            } else {
+                status.className = 'alert alert-success mt-3 mb-0';
+                status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
+            }
         } catch (e) {
             status.className = 'alert alert-danger mt-3 mb-0';
-            status.textContent = 'データ取得に失敗しました。';
+            status.textContent = e && e.message ? ('データ取得に失敗しました: ' + e.message) : 'データ取得に失敗しました。';
         }
     });
 });
 </script>
-</body>
-</html>
+<?php $this->end(); ?>
