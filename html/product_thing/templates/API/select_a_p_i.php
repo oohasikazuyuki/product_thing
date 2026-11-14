@@ -61,11 +61,14 @@
     <div class="col-lg-10">
         <h2 class="h6 text-muted mb-3">そのほかの調査</h2>
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <?= $this->Html->link('<h2>防災・規制調査</h2><p>都市計画・用途地域・災害リスクを地図に重ねて確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <?= $this->Html->link('<h2>学校・生活調査</h2><p>学校区・保育園・医療施設など暮らしの環境を確認</p>', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+            </div>
+            <div class="col-md-4 mb-3">
+                <?= $this->Html->link('<h2>賃貸検索</h2><p>エリアと賃料から、賃貸物件を地図と一覧で探す</p>', ['controller' => 'RentalSearch', 'action' => 'index'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
         </div>
     </div>
@@ -85,8 +88,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!prefecture.value) { cityStatus.textContent = '先に都道府県を選んでください。'; }
 
     // 市区町村だけ差し替える（ページ遷移しない）。同じページをfetchして #city の選択肢を取り出す。
-    const refreshCities = async function () {
+    const refreshCities = async function (wantedCity) {
         const current = ++cityRequest;
+        const previousCity = wantedCity || city.value;
         city.innerHTML = '<option value="">選択してください</option>';
         if (!prefecture.value) { cityStatus.textContent = '先に都道府県を選んでください。'; city.disabled = true; return; }
         cityStatus.textContent = '市区町村を読み込み中…';
@@ -99,6 +103,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const options = doc.querySelectorAll('#city option');
             city.innerHTML = '';
             options.forEach(function (o) { city.appendChild(document.importNode(o, true)); });
+            // 年だけ変えたときなど、同じ市区町村が一覧にあれば選択を維持する
+            if (previousCity && Array.from(city.options).some(function (o) { return o.value === previousCity; })) {
+                city.value = previousCity;
+            }
             cityStatus.textContent = options.length > 1 ? '' : '市区町村を取得できませんでした。年を変えるか、時間をおいて再度お試しください。';
         } catch (e) {
             if (current !== cityRequest) return;
@@ -108,8 +116,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    prefecture.addEventListener('change', refreshCities);
+    prefecture.addEventListener('change', function () { refreshCities(); });
     year.addEventListener('change', function () { if (prefecture.value) refreshCities(); });
+
+    // 前回の検索条件を覚えておき、次に開いたとき復元する（localStorage が使えない環境では何もしない）
+    const STORE_KEY = 'priceSearch.last';
+    const query = new URLSearchParams(window.location.search);
+    const restore = async function () {
+        try {
+            const fromUrl = query.get('prefecture') ? {prefecture: query.get('prefecture'), city: query.get('city') || '', year: query.get('year') || ''} : null;
+            const saved = fromUrl || JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+            if (!saved || !saved.prefecture) { return; }
+            if (prefecture.value !== saved.prefecture) { prefecture.value = saved.prefecture; }
+            if (saved.year && !year.value) { year.value = saved.year; }
+            if (prefecture.value) { await refreshCities(saved.city); }
+        } catch (e) { /* 記憶できなくても検索は使える */ }
+    };
+    restore();
 
     form.addEventListener('submit', function (event) {
         form.classList.add('was-validated');
@@ -117,6 +140,9 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
             return;
         }
+        try {
+            localStorage.setItem(STORE_KEY, JSON.stringify({prefecture: prefecture.value, city: city.value, year: year.value}));
+        } catch (e) { /* 保存できなくても検索は続行 */ }
         button.disabled = true;
         button.textContent = '検索中…';
     });

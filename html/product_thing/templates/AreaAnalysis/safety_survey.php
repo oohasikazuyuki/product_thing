@@ -7,6 +7,7 @@
         <p>取引価格に加えて、都市計画・用途地域・立地適正化計画を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
     </div>
     <div class="mb-3">
+        <?= $this->Html->link('取引価格の結果へ', ['controller' => 'PriceSearch', 'action' => 'displayPrice', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
         <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>

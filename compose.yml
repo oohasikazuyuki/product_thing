@@ -9,6 +9,8 @@ services:
     volumes:
       - ./:/var/www
     platform: linux/amd64 
+    # .env の APIキー等（API_KEY / RAPIDAPI_KEY / HOMES_API_BEARER / GOOGLE_MAPS_API_KEY）をPHPに渡す
+    env_file: .env
     ports:
       - ${WEB_PORT}:80
 

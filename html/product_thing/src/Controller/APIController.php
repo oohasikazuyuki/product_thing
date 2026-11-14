@@ -116,9 +116,8 @@ class APIController extends AppController
 
         $response = false;
         if (!empty($prefectureCode)) {
-            $response = file_get_contents(
-                $base_url . http_build_query($query), false, $context
-            );
+            $mlit = \App\Service\MlitApi::get('XIT002', $query);
+            $response = $mlit['status'] === 0 ? false : $mlit['body'];
         }
 
         $decode_response = [];
@@ -204,7 +203,8 @@ class APIController extends AppController
             return is_array($json) ? $json : null;
         };
 
-        $response = file_get_contents($base_url . http_build_query($query), false, $context);
+        $mlit = \App\Service\MlitApi::get('XIT001', $query);
+        $response = $mlit['status'] === 0 ? false : $mlit['body'];
         if ($response === false) {
             error_log('APIからのデータ取得に失敗しました。');
             throw new \Exception("APIからのデータ取得に失敗しました。");
@@ -215,67 +215,25 @@ class APIController extends AppController
             $data = [];
         }
 
+        // 取引APIには座標が無い(XPT001は地図タイル指定専用)ため、地区名から座標を付ける（結果は30日キャッシュ）
         if (isset($data['data']) && is_array($data['data'])) {
-            $pointBaseUrl = 'https://www.reinfolib.mlit.go.jp/ex-api/external/XPT001?';
-            $pointResponse = file_get_contents($pointBaseUrl . http_build_query($query), false, $context);
-            $pointData = $decodeResponse($pointResponse);
-
-            if (is_array($pointData) && isset($pointData['data']) && is_array($pointData['data'])) {
-                $pointRows = array_values($pointData['data']);
-                $extractCoordinateValue = function (array $row, array $keys) {
-                    foreach ($keys as $key) {
-                        if (isset($row[$key]) && $row[$key] !== '') {
-                            return $row[$key];
-                        }
-                    }
-
-                    return null;
-                };
-
-                $longitudeKeys = ['Longitude', 'longitude', 'lng', 'Lon', 'LON', 'x'];
-                $latitudeKeys = ['Latitude', 'latitude', 'lat', 'Lat', 'LAT', 'y'];
-
-                foreach ($data['data'] as $index => &$record) {
-                    if (!is_array($record) || !isset($pointRows[$index]) || !is_array($pointRows[$index])) {
-                        continue;
-                    }
-
-                    $pointRecord = $pointRows[$index];
-                    $longitude = $extractCoordinateValue($pointRecord, $longitudeKeys);
-                    $latitude = $extractCoordinateValue($pointRecord, $latitudeKeys);
-
-                    if ($longitude !== null && $latitude !== null) {
-                        $record['Longitude'] = $longitude;
-                        $record['Latitude'] = $latitude;
-                    }
-                }
-                unset($record);
-            }
+            $data['data'] = \App\Service\Geocoder::attach($data['data']);
         }
-
 
         if (!is_array($data)) {
             $data = [];
         }
 
-        // ページネーションの設定
-        $page = $this->request->getQuery('page', 1);
-        $limit = 30;
-        $total = 0;
-        $start = ($page - 1) * $limit;
-        $paginatedData = [];
-        if(isset($data['data'])){
-            $paginatedData = array_slice($data['data'], $start, $limit);
-            $total = count($data['data']);
+        // 表・地図とも画面側(JS)で絞り込み・並べ替え・ページ送りするため、必要な列だけにして全行を渡す
+        $columns = ['PriceCategory', 'Type', 'Prefecture', 'Municipality', 'DistrictName', 'TradePrice', 'Area',
+            'BuildingYear', 'FloorPlan', 'Structure', 'Purpose', 'Period', 'Longitude', 'Latitude'];
+        $rows = [];
+        foreach (($data['data'] ?? []) as $record) {
+            if (is_array($record)) {
+                $rows[] = array_intersect_key($record, array_flip($columns));
+            }
         }
-
-
-        $this->set('data', $paginatedData);
-
-        $this->set('page', $page);
-        $this->set('limit', $limit);
-        $this->set('total', $total);
-        $this->set('pages', ceil($total / $limit));
+        $this->set('rows', $rows);
         $this->set('googleMapsApiKey', env('GOOGLE_MAPS_API_KEY') ?: null);
 
     }
@@ -519,56 +477,7 @@ class APIController extends AppController
     /** */
     public function getPrefectures()
     {
-
-        return [
-            '01' => '北海道',
-            '02' => '青森県',
-            '03' => '岩手県',
-            '04' => '宮城県',
-            '05' => '秋田県',
-            '06' => '山形県',
-            '07' => '福島県',
-            '08' => '茨城県',
-            '09' => '栃木県',
-            '10' => '群馬県',
-            '11' => '埼玉県',
-            '12' => '千葉県',
-            '13' => '東京都',
-            '14' => '神奈川県',
-            '15' => '新潟県',
-            '16' => '富山県',
-            '17' => '石川県',
-            '18' => '福井県',
-            '19' => '山梨県',
-            '20' => '長野県',
-            '21' => '岐阜県',
-            '22' => '静岡県',
-            '23' => '愛知県',
-            '24' => '三重県',
-            '25' => '滋賀県',
-            '26' => '京都府',
-            '27' => '大阪府',
-            '28' => '兵庫県',
-            '29' => '奈良県',
-            '30' => '和歌山県',
-            '31' => '鳥取県',
-            '32' => '島根県',
-            '33' => '岡山県',
-            '34' => '広島県',
-            '35' => '山口県',
-            '36' => '徳島県',
-            '37' => '香川県',
-            '38' => '愛媛県',
-            '39' => '高知県',
-            '40' => '福岡県',
-            '41' => '佐賀県',
-            '42' => '長崎県',
-            '43' => '熊本県',
-            '44' => '大分県',
-            '45' => '宮崎県',
-            '46' => '鹿児島県',
-            '47' => '沖縄県',
-        ];
+        return \App\Service\Prefectures::all();
     }
         /**年度を取得するメソッド。現状2004年データはあまりない状態 */
     public function getYear()
