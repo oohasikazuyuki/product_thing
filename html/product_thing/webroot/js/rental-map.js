@@ -12,6 +12,9 @@
     let itemsById = {};
     let lastPayload = null;
     let walkPoints = [];
+    let walkLine = [];
+    let walkSpeed = 1;
+    let walkTurnRaf = 0;
     let walkIndex = 0;
     let walkTimer = null;
     let walkMarker = null;
@@ -190,27 +193,36 @@
         const x = Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) - Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
         return Math.round((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
     };
-    // 経路を約stepMごとの地点に間引き、各地点に「次の地点への向き」を付ける
-    const sampleRoute = function (line, stepM) {
+    // 経路上を stepM ごとの地点に分け（線分の途中も補間）、各地点に「lookahead 個先の地点への向き」を付ける
+    const sampleRoute = function (line, stepM, lookahead) {
         const pts = [line[0]];
-        let acc = 0;
+        let carry = 0; // 最後に置いた地点からの距離
         for (let i = 1; i < line.length; i += 1) {
-            acc += distanceM(line[i - 1], line[i]);
-            if (acc >= stepM) {
-                pts.push(line[i]);
-                acc = 0;
+            const a = line[i - 1];
+            const b = line[i];
+            const seg = distanceM(a, b);
+            if (seg === 0) { continue; }
+            let d = stepM - carry;
+            let emitted = false;
+            while (d <= seg) {
+                const t = d / seg;
+                pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+                d += stepM;
+                emitted = true;
             }
+            carry = emitted ? seg - (d - stepM) : carry + seg;
         }
         const last = line[line.length - 1];
-        if (pts[pts.length - 1] !== last) { pts.push(last); }
+        if (distanceM(pts[pts.length - 1], last) > 1) { pts.push(last); }
         return pts.map(function (p, i) {
-            const next = pts[i + 1];
+            const next = pts[Math.min(i + lookahead, pts.length - 1)];
             const prev = pts[i - 1];
-            return { lng: p[0], lat: p[1], heading: next ? bearing(p, next) : (prev ? bearing(prev, p) : 0) };
+            return { lng: p[0], lat: p[1], heading: next !== p ? bearing(p, next) : (prev ? bearing(prev, p) : 0) };
         });
     };
     const setWalkRoute = function (route) {
-        walkPoints = Array.isArray(route.line) && route.line.length > 1 ? sampleRoute(route.line, 30) : [];
+        walkLine = Array.isArray(route.line) && route.line.length > 1 ? route.line : [];
+        walkPoints = walkLine.length > 0 ? sampleRoute(walkLine, WALK_FRAME_STEP_M, 1) : [];
         const btn = document.getElementById('walkBtn');
         if (btn) { btn.hidden = walkPoints.length === 0; }
     };
@@ -232,7 +244,10 @@
     const walkBack = { index: -1, ready: false, token: 0, timer: null, onready: null };
     let walkPano = null; // Google Maps JavaScript API の StreetViewPanorama（キーがあり読み込めたときだけ）
     let mapsApiPromise = null;
-    const WALK_STEP_MS = 1500; // 映像が出てから次の地点へ進むまでの間
+    const WALK_STEP_MS = 1500; // iframe方式：映像が出てから次の地点へ進むまでの間
+    const WALK_PANO_STEP_MS = 700; // JS API方式：次の地点へ進む間隔
+    const WALK_FRAME_STEP_M = 30; // iframe方式の地点間隔
+    const WALK_PANO_STEP_M = 10; // JS API方式の地点間隔（ストリートビューの撮影間隔が約10〜15m）
 
     const loadMapsApi = function () {
         if (!mapsApiPromise) {
@@ -260,6 +275,7 @@
     const fallbackToFrames = function () {
         walkPano = null;
         config.googleMapsApiKey = null; // 使えないキーは以後使わず、キー無しの埋め込みに戻す
+        if (walkLine.length > 0) { walkPoints = sampleRoute(walkLine, WALK_FRAME_STEP_M, 1); walkIndex = 0; }
         setWalkSurface(false);
         resetWalkFrames();
         if (walkPoints.length > 0) { showWalkPoint(walkIndex); }
@@ -280,6 +296,20 @@
         }
     };
 
+    // 向きを、いまの向きから目標へ最短方向で滑らかに回す
+    const turnTo = function (heading, ms) {
+        cancelAnimationFrame(walkTurnRaf);
+        const from = walkPano.getPov().heading || 0;
+        const delta = ((heading - from + 540) % 360) - 180;
+        const start = performance.now();
+        const step = function (now) {
+            const t = Math.min(1, (now - start) / Math.max(ms, 1));
+            walkPano.setPov({ heading: (from + delta * t + 360) % 360, pitch: 0 });
+            if (t < 1) { walkTurnRaf = requestAnimationFrame(step); }
+        };
+        walkTurnRaf = requestAnimationFrame(step);
+    };
+
     const stopWalk = function () {
         walkPlaying = false;
         if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
@@ -288,7 +318,7 @@
     };
     const scheduleNextWalk = function () {
         if (walkTimer) { clearTimeout(walkTimer); }
-        walkTimer = setTimeout(function () { showWalkPoint(walkIndex + 1); }, WALK_STEP_MS);
+        walkTimer = setTimeout(function () { showWalkPoint(walkIndex + 1); }, (walkPano ? WALK_PANO_STEP_MS : WALK_STEP_MS) / walkSpeed);
     };
     const loadInBack = function (i, onready) {
         const frame = walkFrames[1 - walkFront];
@@ -350,7 +380,7 @@
         if (walkPano) {
             // JS API：iframeを作り直さず、位置と向きだけ動かす
             walkPano.setPosition({ lat: pt.lat, lng: pt.lng });
-            walkPano.setPov({ heading: pt.heading, pitch: 0 });
+            turnTo(pt.heading, WALK_PANO_STEP_MS / walkSpeed * 0.9);
             if (walkPlaying) {
                 if (walkIndex < walkPoints.length - 1) { scheduleNextWalk(); } else { stopWalk(); }
             }
@@ -890,6 +920,7 @@
                 walkFront = 0;
                 resetWalkFrames();
                 await ensureWalkPano();
+                walkPoints = sampleRoute(walkLine, walkPano ? WALK_PANO_STEP_M : WALK_FRAME_STEP_M, walkPano ? 2 : 1);
                 setWalkSurface(!!walkPano);
                 $('#walkModal').modal('show');
                 showWalkPoint(0);
@@ -897,6 +928,16 @@
             document.getElementById('walkPrev').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex - 1); });
             document.getElementById('walkNext').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex + 1); });
             document.getElementById('walkPlay').addEventListener('click', toggleWalkPlay);
+            document.querySelectorAll('[data-walk-speed]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    walkSpeed = Number(btn.dataset.walkSpeed);
+                    document.querySelectorAll('[data-walk-speed]').forEach(function (b) {
+                        b.classList.toggle('active', b === btn);
+                        b.setAttribute('aria-pressed', String(b === btn));
+                    });
+                    if (walkPlaying) { scheduleNextWalk(); }
+                });
+            });
             $('#walkModal').on('shown.bs.modal', function () {
                 if (walkPano) { google.maps.event.trigger(walkPano, 'resize'); }
             });
