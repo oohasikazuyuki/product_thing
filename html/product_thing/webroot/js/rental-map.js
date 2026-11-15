@@ -230,7 +230,55 @@
     let walkFront = 0;
     let walkPlaying = false;
     const walkBack = { index: -1, ready: false, token: 0, timer: null, onready: null };
+    let walkPano = null; // Google Maps JavaScript API の StreetViewPanorama（キーがあり読み込めたときだけ）
+    let mapsApiPromise = null;
     const WALK_STEP_MS = 1500; // 映像が出てから次の地点へ進むまでの間
+
+    const loadMapsApi = function () {
+        if (!mapsApiPromise) {
+            mapsApiPromise = new Promise(function (resolve, reject) {
+                if (window.google && google.maps && google.maps.StreetViewPanorama) { resolve(); return; }
+                window.gm_authFailure = function () { fallbackToFrames(); }; // キー無効・API未有効のとき
+                const script = document.createElement('script');
+                script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.googleMapsApiKey) + '&v=weekly';
+                script.async = true;
+                script.onload = resolve;
+                script.onerror = function () { reject(new Error('maps api')); };
+                document.head.appendChild(script);
+            });
+        }
+        return mapsApiPromise;
+    };
+    const setWalkSurface = function (usePano) {
+        document.getElementById('walkPano').style.display = usePano ? 'block' : 'none';
+        walkFrames.forEach(function (frame, n) {
+            frame.style.display = usePano ? 'none' : 'block';
+            frame.style.visibility = n === walkFront ? 'visible' : 'hidden';
+        });
+    };
+    // JS API が使えないときは、従来のiframe方式に戻す
+    const fallbackToFrames = function () {
+        walkPano = null;
+        config.googleMapsApiKey = null; // 使えないキーは以後使わず、キー無しの埋め込みに戻す
+        setWalkSurface(false);
+        resetWalkFrames();
+        if (walkPoints.length > 0) { showWalkPoint(walkIndex); }
+    };
+    const ensureWalkPano = async function () {
+        if (!config.googleMapsApiKey) { return; }
+        try {
+            await loadMapsApi();
+            if (!walkPano) {
+                walkPano = new google.maps.StreetViewPanorama(document.getElementById('walkPano'), {
+                    addressControl: false, fullscreenControl: false, enableCloseButton: false,
+                    motionTracking: false, showRoadLabels: false, zoomControl: true, panControl: true
+                });
+            }
+        } catch (e) {
+            walkPano = null;
+            config.googleMapsApiKey = null;
+        }
+    };
 
     const stopWalk = function () {
         walkPlaying = false;
@@ -298,6 +346,15 @@
                 walkMarker = new maplibregl.Marker({ color: '#f59e0b' });
             }
             walkMarker.setLngLat([pt.lng, pt.lat]).addTo(map);
+        }
+        if (walkPano) {
+            // JS API：iframeを作り直さず、位置と向きだけ動かす
+            walkPano.setPosition({ lat: pt.lat, lng: pt.lng });
+            walkPano.setPov({ heading: pt.heading, pitch: 0 });
+            if (walkPlaying) {
+                if (walkIndex < walkPoints.length - 1) { scheduleNextWalk(); } else { stopWalk(); }
+            }
+            return;
         }
         if (walkBack.index === walkIndex) {
             // 先読み済み（または読み込み中）の地点：完了したら入れ替える
@@ -777,18 +834,23 @@
 
         const walkBtn = document.getElementById('walkBtn');
         if (walkBtn) {
-            walkBtn.addEventListener('click', function () {
+            walkBtn.addEventListener('click', async function () {
                 if (walkPoints.length === 0) { return; }
                 walkFrames.length = 0;
                 walkFrames.push(document.getElementById('walkFrame'), document.getElementById('walkFrameB'));
                 walkFront = 0;
                 resetWalkFrames();
+                await ensureWalkPano();
+                setWalkSurface(!!walkPano);
                 $('#walkModal').modal('show');
                 showWalkPoint(0);
             });
             document.getElementById('walkPrev').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex - 1); });
             document.getElementById('walkNext').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex + 1); });
             document.getElementById('walkPlay').addEventListener('click', toggleWalkPlay);
+            $('#walkModal').on('shown.bs.modal', function () {
+                if (walkPano) { google.maps.event.trigger(walkPano, 'resize'); }
+            });
             $('#walkModal').on('hidden.bs.modal', function () {
                 stopWalk();
                 resetWalkFrames();

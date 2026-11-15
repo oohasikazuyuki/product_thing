@@ -112,6 +112,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
             </div>
             <div class="modal-body p-0">
                 <div style="position:relative;height:65vh;background:#111">
+                    <div id="walkPano" style="position:absolute;inset:0;display:none" role="img" aria-label="ストリートビュー"></div>
                     <iframe id="walkFrame" title="ストリートビュー" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
                     <iframe id="walkFrameB" title="ストリートビュー（先読み）" style="position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
                 </div>
