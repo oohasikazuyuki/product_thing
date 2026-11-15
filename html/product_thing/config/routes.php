@@ -66,7 +66,7 @@ return function (RouteBuilder $routes): void {
         // Legacy URLs
         $builder->connect('/API/select_a_p_i', ['controller' => 'PriceSearch', 'action' => 'selectAPI']);
         $builder->connect('/API/display_price', ['controller' => 'PriceSearch', 'action' => 'displayPrice']);
-        $builder->connect('/API/displayPrice/:prefectureCode/:cityID/:year', ['controller' => 'PriceSearch', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
+        $builder->connect('/API/displayPrice/{prefectureCode}/{cityID}/{year}', ['controller' => 'PriceSearch', 'action' => 'displayPrice'], ['pass' => ['prefectureCode', 'cityID', 'year']]);
 
         // Explorer URLs
         $builder->connect('/api-explorer', ['controller' => 'ApiExplorer', 'action' => 'apiExplorer']);
