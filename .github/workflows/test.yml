@@ -19,7 +19,8 @@ jobs:
           extensions: mbstring, intl, curl, pdo_mysql
           coverage: none
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        # vendor/ が一部コミットされており composer と衝突するため、消してから入れ直す
+        run: rm -rf vendor && composer install --no-interaction --prefer-dist --no-progress
       - name: Run tests
         # RAPIDAPI_KEY / API_KEY を渡さないので、外部APIは呼ばない（デモ経路・入力検証のみ）
         run: vendor/bin/phpunit
