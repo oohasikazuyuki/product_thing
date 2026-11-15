@@ -13,7 +13,8 @@ class PriceSearchController extends APIController
 
     public function index()
     {
-        return $this->selectAPI();
+        // トップは取引価格検索の入口。index用のテンプレートは無いので select_a_p_i を描画する
+        return $this->selectAPI() ?? $this->render('select_a_p_i');
     }
 
     public function selectAPI($prefectureCode = null, $cityID = null, $year = null)
