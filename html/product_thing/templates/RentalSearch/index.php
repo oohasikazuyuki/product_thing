@@ -123,6 +123,11 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="walkPrev">◀ 前へ</button>
                     <button type="button" class="btn btn-primary btn-sm" id="walkPlay" aria-pressed="false">▶ 自動再生</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="walkNext">次へ ▶</button>
+                    <span class="btn-group btn-group-sm ml-2" role="group" aria-label="再生速度">
+                        <button type="button" class="btn btn-outline-secondary" data-walk-speed="0.5" aria-pressed="false">0.5×</button>
+                        <button type="button" class="btn btn-outline-secondary active" data-walk-speed="1" aria-pressed="true">1×</button>
+                        <button type="button" class="btn btn-outline-secondary" data-walk-speed="2" aria-pressed="false">2×</button>
+                    </span>
                 </div>
                 <span class="small text-muted" id="walkInfo" role="status" aria-live="polite"></span>
             </div>
