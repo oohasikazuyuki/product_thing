@@ -54,6 +54,7 @@ a { color: #166534; }
 .listing-body h3 { font-size: .95rem; font-weight: 700; margin: 0 0 .15rem; }
 .listing-meta { font-size: .8rem; color: var(--muted); margin: 0; }
 .listing-price { font-weight: 700; color: var(--brand); margin: .15rem 0; }
+.listing-tags span.tag-warn { background: #fef3c7; color: #92400e; }
 .listing-tags span { display: inline-block; font-size: .72rem; background: var(--brand-soft); color: var(--brand); border-radius: 4px; padding: .05rem .4rem; margin: 0 .25rem .25rem 0; }
 .listing-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); background: #fff; border-radius: 10px; }
 .listing-item.is-active { outline: 2px solid var(--brand); }

@@ -512,6 +512,8 @@
             walkNotice = item.walk_minutes && Math.abs(route.minutes - Number(item.walk_minutes)) >= 3
                 ? '⚠ 掲載（徒歩' + item.walk_minutes + '分）と差が大きいため、物件の位置や経路が実際と異なる可能性があります。参考程度にご覧ください。'
                 : '';
+            entry.mismatch = walkNotice !== '';
+            refreshWarnTag(item.id);
             setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
                 (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路: ' + source + (walkNotice ? ' ' + walkNotice : ''));
         } catch (error) {
@@ -672,6 +674,23 @@
         return '<div class="listing-thumb is-empty" aria-hidden="true">No image</div>';
     };
 
+    // 掲載の徒歩時間と経路が合わなかった物件には「位置が不確か」の印を付ける（道のりを確認した物件のみ）
+    const WARN_TAG = '<span class="tag-warn" title="掲載の徒歩時間と経路が大きく違います。物件の位置が実際と異なる可能性があります">⚠ 位置が不確か</span>';
+    const isUncertain = function (id) {
+        return !!(routeCache[id] && routeCache[id].mismatch);
+    };
+    const refreshWarnTag = function (id) {
+        const card = document.querySelector('.listing-item[data-id="' + String(id).replace(/"/g, '') + '"]');
+        if (!card || !isUncertain(id) || card.querySelector('.tag-warn')) { return; }
+        let box = card.querySelector('.listing-tags');
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'listing-tags';
+            card.querySelector('.listing-actions').before(box);
+        }
+        box.insertAdjacentHTML('beforeend', WARN_TAG);
+    };
+
     const renderResults = function (payload) {
         const root = document.getElementById('rentalResults');
         root.innerHTML = '';
@@ -713,10 +732,10 @@
                 '<p class="listing-price">' + escapeHtml(item.rent_text || '賃料不明') +
                 (item.maintenance_text ? '<span style="color:var(--muted);font-weight:500;font-size:0.85rem;"> / 管理費 ' + escapeHtml(item.maintenance_text) + '</span>' : '') +
                 '</p>' +
-                (tags.length
+                (tags.length || isUncertain(item.id)
                     ? '<div class="listing-tags">' + tags.map(function (t) {
                         return '<span>' + escapeHtml(t) + '</span>';
-                    }).join('') + '</div>'
+                    }).join('') + (isUncertain(item.id) ? WARN_TAG : '') + '</div>'
                     : '') +
                 '<div class="listing-actions">' +
                 favButton(item) +
@@ -850,6 +869,13 @@
                 return;
             }
             lastPayload = payload;
+            const layoutNote = document.getElementById('layoutNote');
+            if (layoutNote) {
+                layoutNote.hidden = !payload.scanned;
+                layoutNote.textContent = payload.scanned
+                    ? '間取りの絞り込みは、検索結果の先頭' + payload.scanned + '件が対象です。見つからないときは、賃料や面積の範囲を絞って再検索すると、見落としが減ります。'
+                    : '';
+            }
             try { history.replaceState(null, '', '?' + params.toString()); } catch (e) { /* URLを更新できなくても検索は続行 */ }
             renderMarketCompare(payload, params.get('prefecture'), params.get('city'));
             renderMap(payload.items || []);

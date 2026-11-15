@@ -96,6 +96,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <button type="button" id="favToggle" class="btn btn-outline-secondary btn-sm" aria-pressed="false">★ お気に入り (0)</button>
             </span>
         </div>
+        <div id="layoutNote" class="small text-muted mb-2" hidden></div>
         <div id="rentalResults" class="listing-scroll">
             <div class="listing-empty">条件を指定して検索してください。</div>
         </div>
