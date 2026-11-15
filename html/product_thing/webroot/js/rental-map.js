@@ -236,6 +236,13 @@
             '&destination=' + encodeURIComponent(destination);
     };
 
+    // 元ページ（SUUMO）へのリンク。http(s) 以外は出さない
+    const detailLink = function (item, cls) {
+        return /^https?:\/\//.test(item.detail_url || '')
+            ? '<a class="' + cls + '" href="' + escapeHtml(item.detail_url) + '" target="_blank" rel="noopener">SUUMOで詳細を見る</a>'
+            : '';
+    };
+
     const popupHtml = function (item) {
         return '<div style="font:500 13px/1.45 \'IBM Plex Sans JP\',sans-serif;max-width:220px;">' +
             '<strong style="font-size:14px;">' + escapeHtml(item.name) + '</strong><br>' +
@@ -244,6 +251,7 @@
             escapeHtml(item.layout || 'N/A') + (item.area_m2 ? ' · ' + escapeHtml(item.area_m2) + '㎡' : '') +
             (item.station ? ' · ' + escapeHtml(item.station) : '') +
             (item.walk_minutes ? ' 徒歩' + escapeHtml(item.walk_minutes) + '分' : '') +
+            (detailLink(item, 'small') ? '<br>' + detailLink(item, 'small') : '') +
             (item.station ? '<br><button type="button" class="btn btn-link btn-sm p-0" data-route-id="' + escapeHtml(item.id) + '">駅からの道のりを地図に表示</button>' +
                 ' <a class="small" href="' + escapeHtml(routeUrl(item)) + '" target="_blank" rel="noopener">Googleマップ</a>' : '') +
             '</div>';
@@ -326,12 +334,7 @@
             (payload.scanned ? '（先頭' + payload.scanned + '件中）' : ''));
         const frag = document.createDocumentFragment();
         items.forEach(function (item) {
-            const el = document.createElement(item.detail_url ? 'a' : 'div');
-            if (item.detail_url) {
-                el.href = item.detail_url;
-                el.target = '_blank';
-                el.rel = 'noopener';
-            }
+            const el = document.createElement('div');
             el.className = 'listing-item';
             el.dataset.id = item.id;
             const tags = [];
@@ -360,6 +363,7 @@
                     }).join('') + '</div>'
                     : '') +
                 '<div class="listing-actions">' +
+                detailLink(item, 'btn btn-link btn-sm p-0 listing-locate') +
                 (markersById[item.id]
                     ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
                     : '') +
