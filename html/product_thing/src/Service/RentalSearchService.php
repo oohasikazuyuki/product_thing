@@ -29,7 +29,9 @@ class RentalSearchService
 
         $rapidKey = (string)env('RAPIDAPI_KEY', '');
         if ($rapidKey !== '') {
-            return $this->searchRapidApiSuumo($query, $rapidKey);
+            return $query['layouts'] !== []
+                ? $this->searchRapidApiSuumoByLayout($query, $rapidKey)
+                : $this->searchRapidApiSuumo($query, $rapidKey);
         }
 
         $homesToken = (string)env('HOMES_API_BEARER', '');
@@ -37,7 +39,13 @@ class RentalSearchService
             return $this->searchHomes($query, $homesToken);
         }
 
-        return $this->searchDemo($query);
+        $demo = $this->searchDemo($query);
+        if ($query['layouts'] !== []) {
+            $demo['items'] = array_values(array_filter($demo['items'], static fn(array $i): bool => in_array($i['layout'], $query['layouts'], true)));
+            $demo['total'] = count($demo['items']);
+        }
+
+        return $demo;
     }
 
     /**
@@ -84,7 +92,25 @@ class RentalSearchService
             throw new BadRequestException('最低賃料が最高賃料を超えています。');
         }
 
+        $minArea = $this->toOptionalFloat($params['area_min'] ?? null);
+        $maxArea = $this->toOptionalFloat($params['area_max'] ?? null);
+        if ($minArea !== null && $maxArea !== null && $minArea > $maxArea) {
+            throw new BadRequestException('最小面積が最大面積を超えています。');
+        }
+
+        $layouts = $params['layouts'] ?? [];
+        if (is_string($layouts)) {
+            $layouts = explode(',', $layouts);
+        }
+        $layouts = array_slice(array_values(array_unique(array_filter(
+            array_map('trim', (array)$layouts),
+            static fn(string $l): bool => $l !== '' && preg_match('/^[0-9A-Za-zワンルーム]{1,12}$/u', $l) === 1
+        ))), 0, 12);
+
         return [
+            'layouts' => $layouts,
+            'area_min' => $minArea,
+            'area_max' => $maxArea,
             'free_word' => trim((string)($params['free_word'] ?? '')),
             'fulladdr' => trim((string)($params['fulladdr'] ?? '')),
             'month_money_room' => $minRentMan,
@@ -172,6 +198,58 @@ class RentalSearchService
         ];
     }
 
+    private const LAYOUT_SCAN_PAGES = 5;
+    private const PER_PAGE = 20;
+
+    /**
+     * RapidAPI SUUMO には間取りの絞り込み条件が無いため、先頭 LAYOUT_SCAN_PAGES ページ(=100件)を取得して
+     * 選ばれた間取りだけを残す。ページ単位でキャッシュされるので、間取りを変えて再検索しても無料枠は減らない。
+     *
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private function searchRapidApiSuumoByLayout(array $query, string $apiKey): array
+    {
+        $matches = [];
+        $scanned = 0;
+        $result = null;
+        for ($p = 1; $p <= self::LAYOUT_SCAN_PAGES; $p++) {
+            $pageQuery = $query;
+            $pageQuery['page'] = $p;
+            $result = $this->searchRapidApiSuumo($pageQuery, $apiKey);
+            if (isset($result['debug_body'])) {
+                if ($p === 1) {
+                    return $result; // 取得失敗（鍵・上限など）はそのまま返す
+                }
+                break;
+            }
+            foreach ($result['items'] as $item) {
+                if (in_array($item['layout'], $query['layouts'], true)) {
+                    $matches[] = $item;
+                }
+            }
+            $scanned += count($result['items']);
+            if (count($result['items']) < self::PER_PAGE || $p * self::PER_PAGE >= $result['total']) {
+                break;
+            }
+        }
+
+        $page = max(1, (int)$query['page']);
+
+        return [
+            'provider' => 'rapidapi_suumo',
+            'provider_label' => 'RapidAPI SUUMO Japan Real Estate',
+            'total' => count($matches),
+            'page' => $page,
+            'per_page' => self::PER_PAGE,
+            'items' => array_slice($matches, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
+            'demo' => false,
+            'scanned' => $scanned,
+            'message' => '先頭' . $scanned . '件から間取りで絞り込みました（無料枠の節約のため）。'
+                . ($matches === [] ? ' 該当がなければ、賃料や面積の範囲を広げてください。' : ''),
+        ];
+    }
+
     /**
      * @param array<string, mixed> $query
      * @return array{provider: string, provider_label: string, total: int, items: array<int, array<string, mixed>>, demo: bool, message: string|null}
@@ -197,6 +275,12 @@ class RentalSearchService
         }
         if ($query['month_money_room_h'] !== null) {
             $params['rent_max'] = (string)$query['month_money_room_h'];
+        }
+        if ($query['area_min'] !== null) {
+            $params['area_min'] = (string)$query['area_min'];
+        }
+        if ($query['area_max'] !== null) {
+            $params['area_max'] = (string)$query['area_max'];
         }
 
         $cacheKey = 'rental_' . md5(http_build_query($params));
@@ -462,6 +546,7 @@ class RentalSearchService
             'lat' => $lat,
             'lng' => $lng,
             'layout' => (string)($row['madori'] ?? $row['layout'] ?? $row['floor_plan'] ?? ''),
+            'area_m2' => $this->toOptionalFloat(preg_replace('/[^0-9.]/', '', (string)($row['menseki'] ?? $row['floor_area'] ?? '')) ?: null),
             'rent_text' => $rentText,
             'rent_yen' => $rentYen,
             'maintenance_text' => (string)($row['kanrihi'] ?? $row['management_fee'] ?? ''),

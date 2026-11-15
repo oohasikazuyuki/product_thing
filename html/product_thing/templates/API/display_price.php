@@ -72,20 +72,30 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
                     <label class="small mb-1" for="fDistrict">地区</label>
                     <select id="fDistrict" class="form-control form-control-sm"></select>
                 </div>
-                <div class="form-group col-6 col-md-2 mb-2">
-                    <label class="small mb-1" for="fPriceMin">取引価格（万円）</label>
-                    <div class="input-group input-group-sm">
-                        <input id="fPriceMin" type="number" min="0" inputmode="numeric" class="form-control" placeholder="下限" aria-label="取引価格の下限（万円）">
-                        <input id="fPriceMax" type="number" min="0" inputmode="numeric" class="form-control" placeholder="上限" aria-label="取引価格の上限（万円）">
+                <?php
+                // 数字を打たずに選べるよう、よく使う区切りをプルダウンにする
+                $rangeSelects = [
+                    ['id' => 'fPrice', 'label' => '取引価格', 'steps' => [500, 1000, 1500, 2000, 3000, 4000, 5000, 7000, 10000, 15000, 20000, 30000, 50000],
+                        'text' => fn($v) => $v >= 10000 ? rtrim(rtrim(number_format($v / 10000, 1), '0'), '.') . '億円' : number_format($v) . '万円'],
+                    ['id' => 'fArea', 'label' => '面積', 'steps' => [20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 300],
+                        'text' => fn($v) => $v . '㎡'],
+                ];
+                ?>
+                <?php foreach ($rangeSelects as $range): ?>
+                    <div class="form-group col-12 col-md-2 mb-2">
+                        <span class="small d-block mb-1"><?= h($range['label']) ?></span>
+                        <div class="input-group input-group-sm">
+                            <?php foreach (['Min' => '下限なし', 'Max' => '上限なし'] as $edge => $none): ?>
+                                <select id="<?= h($range['id'] . $edge) ?>" class="form-control" aria-label="<?= h($range['label'] . ($edge === 'Min' ? 'の下限' : 'の上限')) ?>">
+                                    <option value=""><?= h($none) ?></option>
+                                    <?php foreach ($range['steps'] as $step): ?>
+                                        <option value="<?= (int)$step ?>"><?= h($range['text']($step)) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group col-6 col-md-2 mb-2">
-                    <label class="small mb-1" for="fAreaMin">面積（㎡）</label>
-                    <div class="input-group input-group-sm">
-                        <input id="fAreaMin" type="number" min="0" inputmode="numeric" class="form-control" placeholder="下限" aria-label="面積の下限（㎡）">
-                        <input id="fAreaMax" type="number" min="0" inputmode="numeric" class="form-control" placeholder="上限" aria-label="面積の上限（㎡）">
-                    </div>
-                </div>
+                <?php endforeach; ?>
                 <div class="form-group col-8 col-md-3 mb-2">
                     <label class="small mb-1" for="searchInput">キーワード</label>
                     <input type="search" id="searchInput" class="form-control form-control-sm" placeholder="例：岩本町、RC、1K">
@@ -990,6 +1000,19 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
         // ---- イベント ----
         fillSelect('fType', 'すべて', distinct('Type'));
         fillSelect('fDistrict', 'すべて', distinct('DistrictName'));
+        // 下限が上限を超えたら、もう一方の選択を外す（常に有効な範囲にする）
+        [['fPriceMin', 'fPriceMax'], ['fAreaMin', 'fAreaMax']].forEach(function (pair) {
+            pair.forEach(function (id, index) {
+                document.getElementById(id).addEventListener('change', function () {
+                    const min = num(document.getElementById(pair[0]).value);
+                    const max = num(document.getElementById(pair[1]).value);
+                    if (min !== null && max !== null && min > max) {
+                        document.getElementById(pair[1 - index]).value = '';
+                    }
+                });
+            });
+        });
+
         let filterTimer = null;
         filterIds.forEach(function (id) {
             const element = document.getElementById(id);

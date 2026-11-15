@@ -51,16 +51,67 @@ class WalkingRoute
      */
     private static function findStation(string $name, float $lat, float $lng): ?array
     {
-        $key = 'st_' . md5($name . '|' . round($lat, 2) . '|' . round($lng, 2));
+        $key = 'st2_' . md5($name . '|' . round($lat, 2) . '|' . round($lng, 2));
         $cached = Cache::read($key, 'geocode');
         if ($cached !== null) {
             return $cached === 'none' ? null : $cached;
         }
 
+        // OSM では「幡ヶ谷駅」「西新宿五丁目」のように駅名の表記が揺れるため、両方を順に試す
+        $names = [$name, preg_replace('/駅$/u', '', $name)];
+        $best = null;
+        $bestDistance = INF;
+        foreach ($names as $index => $query) {
+            $rows = self::searchNominatim($query, $lat, $lng);
+            if ($rows === null) {
+                return null; // 通信失敗はキャッシュしない
+            }
+            foreach ($rows as $row) {
+                if (!is_array($row) || !isset($row['lat'], $row['lon']) || !self::isStation($row)) {
+                    continue;
+                }
+                $distance = self::haversine((float)$row['lat'], (float)$row['lon'], $lat, $lng);
+                if ($distance < $bestDistance) {
+                    $bestDistance = $distance;
+                    $best = [(float)$row['lon'], (float)$row['lat']];
+                }
+            }
+            if ($best !== null) {
+                break;
+            }
+            if ($index === 0) {
+                usleep(1100000); // Nominatim は 1リクエスト/秒まで
+            }
+        }
+
+        Cache::write($key, $best ?? 'none', 'geocode');
+
+        return $best;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function isStation(array $row): bool
+    {
+        $category = $row['category'] ?? '';
+        $type = $row['type'] ?? '';
+
+        return ($category === 'railway' && in_array($type, ['station', 'halt', 'stop', 'subway_entrance', 'tram_stop'], true))
+            || ($category === 'public_transport' && $type === 'station');
+    }
+
+    /**
+     * 物件の周辺(約±6km)で名称検索する。
+     *
+     * @return array<int, mixed>|null
+     */
+    private static function searchNominatim(string $query, float $lat, float $lng): ?array
+    {
         $d = 0.06;
         try {
             $response = (new Client(['timeout' => 8]))->get('https://nominatim.openstreetmap.org/search', [
-                'q' => $name,
+                'q' => $query,
                 'format' => 'jsonv2',
                 'limit' => 20,
                 'countrycodes' => 'jp',
@@ -69,32 +120,13 @@ class WalkingRoute
                 'bounded' => 1,
             ], ['headers' => ['User-Agent' => 'product-thing/1.0 (rental search; station lookup)', 'Accept' => 'application/json']]);
         } catch (\Throwable $e) {
-            return null; // 通信失敗はキャッシュしない
+            return null;
         }
         if ($response->getStatusCode() !== 200) {
             return null;
         }
 
-        $best = null;
-        $bestDistance = INF;
-        foreach ((array)json_decode($response->getStringBody(), true) as $row) {
-            if (!is_array($row) || !isset($row['lat'], $row['lon'])) {
-                continue;
-            }
-            $isRail = ($row['category'] ?? '') === 'railway' || ($row['category'] ?? '') === 'public_transport';
-            if (!$isRail) {
-                continue;
-            }
-            $distance = self::haversine((float)$row['lat'], (float)$row['lon'], $lat, $lng);
-            if ($distance < $bestDistance) {
-                $bestDistance = $distance;
-                $best = [(float)$row['lon'], (float)$row['lat']];
-            }
-        }
-
-        Cache::write($key, $best ?? 'none', 'geocode');
-
-        return $best;
+        return (array)json_decode($response->getStringBody(), true);
     }
 
     /**
