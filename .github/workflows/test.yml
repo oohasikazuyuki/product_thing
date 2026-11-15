@@ -1,0 +1,26 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: html/product_thing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, curl, pdo_mysql
+          coverage: none
+      - name: Install dependencies
+        # vendor/ が一部コミットされており composer と衝突するため、消してから入れ直す
+        run: rm -rf vendor && composer install --no-interaction --prefer-dist --no-progress
+      - name: Run tests
+        # RAPIDAPI_KEY / API_KEY を渡さないので、外部APIは呼ばない（デモ経路・入力検証のみ）
+        run: vendor/bin/phpunit
