@@ -63,6 +63,7 @@
 </div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+<?= $this->Html->script('map-view.js?v=' . filemtime(WWW_ROOT . 'js' . DS . 'map-view.js')) ?>
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
     const area = <?= json_encode($area, JSON_UNESCAPED_UNICODE) ?>;
@@ -92,17 +93,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         {key: 'xkt011', apiId: 'XKT011', color: '#ec4899', label: '福祉施設'}
     ];
 
-    const map = new maplibregl.Map({
-        container: 'map',
-        style: {
-            version: 8,
-            sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 } },
-            layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-        },
+    const view = await MapView.create(document.getElementById('map'), {
+        googleKey: null, // 学校・生活調査はGoogleマップにする必要がないため、従来のMapLibre（OSM）を使う
         center: [139.7671, 35.6812],
         zoom: 11
     });
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     const lonToTile = (lon, z) => Math.floor((lon + 180) / 360 * Math.pow(2, z));
     const latToTile = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
@@ -165,9 +160,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             const c = featureCoord(f);
             if (!c) return;
             const p = f.properties || {};
-            const marker = new maplibregl.Marker({color}).setLngLat(c).setPopup(
-                new maplibregl.Popup({offset: 24, maxWidth: '260px'}).setHTML(popupHtml(p, label, layerKey, c))
-            ).addTo(map);
+            const marker = view.addMarker(c, color, popupHtml(p, label, layerKey, c));
             markerRegistry[layerKey].push(marker);
             count += 1;
             const name = describe(p, layerKey).name;
@@ -179,28 +172,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     };
 
     const fitMapToFeatures = (features) => {
-        const bounds = new maplibregl.LngLatBounds();
-        let hasPoint = false;
-        features.forEach((f) => {
-            const c = featureCoord(f);
-            if (!c) return;
-            bounds.extend(c);
-            hasPoint = true;
-        });
-        if (hasPoint) {
-            map.fitBounds(bounds, {padding: 40, maxZoom: 14});
-        }
+        const coords = features.map(featureCoord).filter(Boolean);
+        view.fit(coords, {padding: 40, maxZoom: 14});
     };
 
     const fetchLayer = async (def) => {
-        const center = map.getCenter();
+        const center = view.getCenter(); // [経度, 緯度]
         const z = 14;
         const params = new URLSearchParams({
             api_id: def.apiId,
             response_format: 'geojson',
             z: String(z),
-            x: String(lonToTile(center.lng, z)),
-            y: String(latToTile(center.lat, z))
+            x: String(lonToTile(center[0], z)),
+            y: String(latToTile(center[1], z))
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
         if (!res.ok) {
@@ -216,9 +200,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     };
 
     const toggleLayer = (layerKey, visible) => {
-        markerRegistry[layerKey].forEach((marker) => {
-            marker.getElement().style.display = visible ? '' : 'none';
-        });
+        markerRegistry[layerKey].forEach((marker) => marker.setVisible(visible));
     };
 
     const renderSummary = (summaryRows) => {
@@ -232,8 +214,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             a.addEventListener('click', (event) => {
                 event.preventDefault();
                 const marker = items[Number(a.dataset.sample)].marker;
-                map.flyTo({center: marker.getLngLat(), zoom: Math.max(map.getZoom(), 16), essential: true});
-                if (!marker.getPopup().isOpen()) marker.togglePopup();
+                view.flyTo(marker.lngLat, Math.max(view.getZoom(), 16));
+                marker.open();
             });
         });
     };
@@ -250,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     $('#svModal').on('hidden.bs.modal', () => { document.getElementById('svFrame').src = 'about:blank'; });
 
-    map.on('load', async function () {
+    view.ready.then(async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
             if (!txRes.ok) {

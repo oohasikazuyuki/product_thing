@@ -15,6 +15,7 @@
     <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です（十数秒かかることがあります）…</div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
+<?= $this->Html->script('map-view.js?v=' . filemtime(WWW_ROOT . 'js' . DS . 'map-view.js')) ?>
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
     const area = <?= json_encode($area, JSON_UNESCAPED_UNICODE) ?>;
@@ -25,17 +26,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     const mlitGeoJsonUrl = <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'geojson'])) ?>;
     const status = document.getElementById('status');
 
-    const map = new maplibregl.Map({
-        container: 'map',
-        style: {
-            version: 8,
-            sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 } },
-            layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-        },
+    const view = await MapView.create(document.getElementById('map'), {
+        googleKey: <?= json_encode($googleMapsApiKey ?? null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         center: [139.7671, 35.6812],
         zoom: 11
     });
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     const lonToTile = (lon, z) => Math.floor((lon + 180) / 360 * Math.pow(2, z));
     const latToTile = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
@@ -49,43 +44,34 @@ document.addEventListener('DOMContentLoaded', async function () {
         return null;
     };
 
+    const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
     const addFeatures = (features, color, label) => {
         let count = 0;
         features.forEach((f) => {
             const c = featureCoord(f);
             if (!c) return;
             const p = f.properties || {};
-            new maplibregl.Marker({color}).setLngLat(c).setPopup(
-                new maplibregl.Popup({offset: 24}).setHTML('<strong>' + label + '</strong><br>' + Object.keys(p).slice(0, 4).map((k) => k + ': ' + p[k]).join('<br>'))
-            ).addTo(map);
+            view.addMarker(c, color, '<div style="max-width:240px"><strong>' + escapeHtml(label) + '</strong><br>' + Object.keys(p).slice(0, 4).map((k) => escapeHtml(k) + ': ' + escapeHtml(p[k])).join('<br>') + '</div>');
             count += 1;
         });
         return count;
     };
 
     const fitMapToFeatures = (features) => {
-        const bounds = new maplibregl.LngLatBounds();
-        let hasPoint = false;
-        features.forEach((f) => {
-            const c = featureCoord(f);
-            if (!c) return;
-            bounds.extend(c);
-            hasPoint = true;
-        });
-        if (hasPoint) {
-            map.fitBounds(bounds, {padding: 40, maxZoom: 14});
-        }
+        const coords = features.map(featureCoord).filter(Boolean);
+        view.fit(coords, {padding: 40, maxZoom: 14});
     };
 
     const fetchLayer = async (apiId, color, label) => {
-        const center = map.getCenter();
+        const center = view.getCenter(); // [経度, 緯度]
         const z = 14;
         const params = new URLSearchParams({
             api_id: apiId,
             response_format: 'geojson',
             z: String(z),
-            x: String(lonToTile(center.lng, z)),
-            y: String(latToTile(center.lat, z))
+            x: String(lonToTile(center[0], z)),
+            y: String(latToTile(center[1], z))
         });
         const res = await fetch(layerDataUrl + '?' + params.toString());
         if (!res.ok) {
@@ -99,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         return {count: addFeatures(features, color, label), error: null};
     };
 
-    map.on('load', async function () {
+    view.ready.then(async function () {
         try {
             const txRes = await fetch(mlitGeoJsonUrl + '?area=' + encodeURIComponent(area) + '&city=' + encodeURIComponent(city) + '&year=' + encodeURIComponent(year));
             if (!txRes.ok) {
