@@ -61,9 +61,6 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 </div>
             </div>
         <?php endforeach; ?>
-        <div class="form-group col-12 col-md-2 mb-2">
-            <button type="submit" class="btn btn-success btn-sm btn-block" id="searchBtn">検索</button>
-        </div>
     </div>
     <?php $layoutOptions = ['ワンルーム', '1K', '1DK', '1LDK', '2K', '2DK', '2LDK', '3K', '3DK', '3LDK']; ?>
     <fieldset class="mb-0">
@@ -75,6 +72,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
             <?php endforeach; ?>
         </div>
     </fieldset>
+    <button type="submit" class="btn btn-success btn-block mt-3" id="searchBtn">検索</button>
 </form>
 
 <div class="row">
