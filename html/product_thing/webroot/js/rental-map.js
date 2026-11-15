@@ -13,6 +13,7 @@
     let lastPayload = null;
     let walkPoints = [];
     let walkLine = [];
+    let walkNotice = '';
     let walkSpeed = 1;
     let walkTurnRaf = 0;
     let walkIndex = 0;
@@ -169,6 +170,7 @@
 
     const clearRoute = function () {
         walkPoints = [];
+        walkNotice = '';
         const walkBtn = document.getElementById('walkBtn');
         if (walkBtn) { walkBtn.hidden = true; }
         if (stationMarker) {
@@ -451,8 +453,12 @@
             }
             drawRoute(route);
             setWalkRoute(route);
+            // 掲載の徒歩時間と3分以上ずれるときは、位置や経路が不正確な可能性を伝える
+            walkNotice = item.walk_minutes && Math.abs(route.minutes - Number(item.walk_minutes)) >= 3
+                ? '⚠ 掲載（徒歩' + item.walk_minutes + '分）と差が大きいため、物件の位置や経路が実際と異なる可能性があります。参考程度にご覧ください。'
+                : '';
             setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
-                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路は地図データによる目安です');
+                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路は地図データによる目安です' + (walkNotice ? ' ' + walkNotice : ''));
         } catch (error) {
             setStatus('駅からの道のりの取得中にエラーが発生しました。');
         }
@@ -922,6 +928,8 @@
                 await ensureWalkPano();
                 walkPoints = sampleRoute(walkLine, walkPano ? WALK_PANO_STEP_M : WALK_FRAME_STEP_M, walkPano ? 2 : 1);
                 setWalkSurface(!!walkPano);
+                document.getElementById('walkNotice').textContent = walkNotice;
+                document.getElementById('walkNotice').hidden = walkNotice === '';
                 $('#walkModal').modal('show');
                 showWalkPoint(0);
             });
