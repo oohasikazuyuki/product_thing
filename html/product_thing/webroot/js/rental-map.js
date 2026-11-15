@@ -141,6 +141,23 @@
         map.jumpTo({ center: defaultCenter, zoom: defaultZoom });
     };
 
+    // ステータスに説明と「Googleマップで開く」リンクを出す（別タブは利用者が選んだときだけ開く）
+    const setStatusWithLink = function (message, url) {
+        const el = document.getElementById('searchStatus');
+        if (!el) {
+            return;
+        }
+        el.textContent = message + ' ';
+        if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = 'Googleマップで開く';
+            el.appendChild(link);
+        }
+    };
+
     const clearRoute = function () {
         if (stationMarker) {
             stationMarker.remove();
@@ -183,7 +200,7 @@
         const lat = Number(item.lat);
         const lng = Number(item.lng);
         if (!isJapanCoordinate(lat, lng) || !config.routeEndpoint) {
-            window.open(routeUrl(item), '_blank', 'noopener');
+            setStatusWithLink('この物件は位置情報がないため、地図にルートを表示できません。', routeUrl(item));
             return;
         }
         activateItem(item.id, false);
@@ -193,8 +210,7 @@
             const response = await fetch(config.routeEndpoint + '?' + params.toString(), { headers: { Accept: 'application/json' } });
             const route = await response.json();
             if (!route.ok) {
-                setStatus((route.message || '駅からの道のりを取得できませんでした。') + ' Googleマップで開きます。');
-                window.open(routeUrl(item), '_blank', 'noopener');
+                setStatusWithLink(route.message || '駅からの道のりを取得できませんでした。', routeUrl(item));
                 return;
             }
             drawRoute(route);

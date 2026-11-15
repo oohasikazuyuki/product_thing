@@ -91,5 +91,5 @@ $this->assign('containerClass', 'container-fluid px-md-4');
         defaultCity: '13113'
     };
 </script>
-<?= $this->Html->script('rental-map') ?>
+<?= $this->Html->script('rental-map.js?v=' . filemtime(WWW_ROOT . 'js' . DS . 'rental-map.js')) ?>
 <?php $this->end(); ?>
