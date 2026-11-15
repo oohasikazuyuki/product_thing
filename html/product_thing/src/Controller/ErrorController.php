@@ -36,17 +36,6 @@ class ErrorController extends AppController
     }
 
     /**
-     * beforeFilter callback.
-     *
-     * @param \Cake\Event\EventInterface<\App\Controller\ErrorController> $event Event.
-     * @return \Cake\Http\Response|null|void
-     */
-    public function beforeFilter(EventInterface $event)
-    {
-        $this->redirect(['controller' => 'API', 'action' => 'index']);
-    }
-
-    /**
      * beforeRender callback.
      *
      * @param \Cake\Event\EventInterface<\App\Controller\ErrorController> $event Event.
