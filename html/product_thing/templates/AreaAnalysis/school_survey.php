@@ -47,6 +47,20 @@
             </div>
         </div>
     </div>
+<div class="modal fade" id="svModal" tabindex="-1" role="dialog" aria-labelledby="svTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="svTitle">ストリートビュー</h2>
+                <a id="svExternal" class="ml-auto mr-3 small" href="#" target="_blank" rel="noopener">新しいタブで開く</a>
+                <button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="svFrame" title="ストリートビュー" style="width:100%;height:70vh;border:0" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <script>
@@ -106,6 +120,44 @@ document.addEventListener('DOMContentLoaded', async function () {
     const jpValues = (p) => Object.keys(p).map((k) => p[k]).filter((v) => typeof v === 'string' && /[\u3040-\u30ff\u3400-\u9fff]/.test(v));
     const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
+    // レイヤーごとの項目（名称・種別・住所・診療科）。URLはデータに無いため、名称＋住所から検索リンクを作る
+    const fieldMap = {
+        xkt004: {name: 'A27_004_ja', kind: 'A27_002', addr: 'A27_005'},
+        xkt005: {name: 'A32_004_ja', kind: 'A32_002', addr: 'A32_005'},
+        xkt006: {name: 'P29_004_ja', kind: 'P29_003_name_ja', addr: 'P29_005_ja'},
+        xkt007: {name: 'preSchoolName_ja', addr: 'location_ja'},
+        xkt010: {name: 'P04_002_ja', kind: 'P04_001_name_ja', addr: 'P04_003_ja', subject: 'medical_subject_ja'},
+        xkt011: {name: 'P14_008_ja', kind: 'P14_005_name_ja', addr: 'P14_004_ja'}
+    };
+    const selectedText = (name) => {
+        const el = document.querySelector('select[name="' + name + '"]');
+        return el && el.selectedOptions[0] ? el.selectedOptions[0].textContent.trim() : '';
+    };
+    const areaPrefix = () => selectedText('area') + selectedText('city'); // 住所に市区町村が無いデータの検索精度を上げる
+    const describe = (p, layerKey) => {
+        const m = fieldMap[layerKey];
+        if (m) {
+            const clean = (v) => (typeof v === 'string' ? v.replace(/[　\s]+/g, ' ').trim() : '');
+            return {name: clean(p[m.name]), kind: m.kind ? clean(p[m.kind]) : '', addr: clean(p[m.addr]), subject: m.subject ? clean(p[m.subject]) : ''};
+        }
+        const jp = jpValues(p); // 取引価格など：日本語の値だけを並べる
+        return {name: jp[0] || '', kind: '', addr: jp.slice(1, 4).join(' / '), subject: ''};
+    };
+    const popupHtml = (p, label, layerKey, c) => {
+        const d = describe(p, layerKey);
+        const q = encodeURIComponent((areaPrefix() + ' ' + (d.name || '') + ' ' + (layerKey === 'xit001' ? '' : d.addr)).trim());
+        const rows = ['<strong>' + escapeHtml(d.name || label) + '</strong> <span class="text-muted">(' + escapeHtml(label) + (d.kind ? ' / ' + escapeHtml(d.kind) : '') + ')</span>'];
+        if (d.addr) rows.push(escapeHtml(d.addr));
+        if (d.subject) rows.push('<span class="text-muted">診療科: ' + escapeHtml(d.subject.slice(0, 60)) + (d.subject.length > 60 ? '…' : '') + '</span>');
+        const links = [
+            '<a href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener">Googleマップ</a>',
+            d.name ? '<a href="https://www.google.com/search?q=' + encodeURIComponent((areaPrefix() + ' ' + d.name + ' 公式サイト').trim()) + '" target="_blank" rel="noopener">公式サイト・口コミを検索</a>' : '',
+            '<a href="#" data-sv="' + c[1] + ',' + c[0] + '">ストリートビュー</a>'
+        ].filter(Boolean);
+        rows.push('<div class="mt-1 small">' + links.join(' ・ ') + '</div>');
+        return '<div style="max-width:240px">' + rows.join('<br>') + '</div>';
+    };
+
     const addFeatures = (features, color, label, layerKey) => {
         let count = 0;
         const samples = [];
@@ -114,13 +166,13 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (!c) return;
             const p = f.properties || {};
             const marker = new maplibregl.Marker({color}).setLngLat(c).setPopup(
-                new maplibregl.Popup({offset: 24}).setHTML('<strong>' + label + '</strong><br>' + jpValues(p).slice(0, 4).map(escapeHtml).join('<br>'))
+                new maplibregl.Popup({offset: 24, maxWidth: '260px'}).setHTML(popupHtml(p, label, layerKey, c))
             ).addTo(map);
             markerRegistry[layerKey].push(marker);
             count += 1;
-            const names = jpValues(p);
-            if (samples.length < 5 && names.length > 0) {
-                samples.push(escapeHtml(names[0]) + ' <span class="text-muted">(' + label + ')</span>');
+            const name = describe(p, layerKey).name;
+            if (samples.length < 5 && name) {
+                samples.push({text: escapeHtml(name) + ' <span class="text-muted">(' + escapeHtml(label) + ')</span>', marker});
             }
         });
         return {count, samples};
@@ -173,9 +225,30 @@ document.addEventListener('DOMContentLoaded', async function () {
         summaryEl.innerHTML = summaryRows.map((r) => '<tr><th>' + r.label + '</th><td class="text-right">' + r.count + '件</td></tr>').join('');
     };
 
+    // 一覧の項目を押すと、地図がその地点へ移動してポップアップが開く
     const renderList = (items) => {
-        surveyListEl.innerHTML = items.length ? items.map((item) => '<li>' + item + '</li>').join('') : '<li>対象データなし</li>';
+        surveyListEl.innerHTML = items.length ? items.map((item, i) => '<li><a href="#" data-sample="' + i + '">' + item.text + '</a></li>').join('') : '<li>対象データなし</li>';
+        surveyListEl.querySelectorAll('[data-sample]').forEach((a) => {
+            a.addEventListener('click', (event) => {
+                event.preventDefault();
+                const marker = items[Number(a.dataset.sample)].marker;
+                map.flyTo({center: marker.getLngLat(), zoom: Math.max(map.getZoom(), 16), essential: true});
+                if (!marker.getPopup().isOpen()) marker.togglePopup();
+            });
+        });
     };
+
+    // ポップアップ内の「ストリートビュー」：モーダルで表示（キー不要の埋め込み）
+    document.addEventListener('click', (event) => {
+        const sv = event.target.closest('[data-sv]');
+        if (!sv) return;
+        event.preventDefault();
+        const loc = sv.dataset.sv;
+        document.getElementById('svFrame').src = 'https://maps.google.com/maps?layer=c&cbll=' + loc + '&cbp=11,0,0,0,0&output=svembed';
+        document.getElementById('svExternal').href = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + loc;
+        $('#svModal').modal('show');
+    });
+    $('#svModal').on('hidden.bs.modal', () => { document.getElementById('svFrame').src = 'about:blank'; });
 
     map.on('load', async function () {
         try {
