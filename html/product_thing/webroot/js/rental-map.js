@@ -855,6 +855,14 @@
                 chip.classList.toggle('badge-success', !payload.demo);
                 chip.textContent = (payload.demo ? 'デモモード' : 'ライブ接続') +
                     ' · ' + (payload.provider_label || payload.provider || '');
+                // 無料枠の残り（少なくなったら色を変える）
+                const quota = payload.quota;
+                if (quota && typeof quota.remaining === 'number') {
+                    chip.textContent += ' · 今月の無料枠 残り ' + quota.remaining + ' / ' + quota.limit + ' 回';
+                    chip.classList.toggle('badge-danger', quota.remaining <= 0);
+                    chip.classList.toggle('badge-warning', !!payload.demo || (quota.remaining > 0 && quota.remaining <= 30));
+                    chip.classList.toggle('badge-success', !payload.demo && quota.remaining > 30);
+                }
             }
         } catch (error) {
             setStatus('検索中にエラーが発生しました');

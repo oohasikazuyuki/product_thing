@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Test\TestCase\Controller;
 
+use Cake\Cache\Cache;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 
@@ -38,5 +39,22 @@ class RentalSearchControllerTest extends TestCase
     {
         $this->get('/no-such-page');
         $this->assertResponseCode(404);
+    }
+
+    /** 無料枠が尽きたら、赤いバッジで残り0回と分かるようにする（ライブ鍵がある環境のみ意味を持つ） */
+    public function testQuotaBadgeShowsRemainingWhenRecorded(): void
+    {
+        $old = Cache::read('rapidapi_quota', 'geocode');
+        Cache::write('rapidapi_quota', ['remaining' => 0, 'limit' => 300, 'reset_at' => null], 'geocode');
+        try {
+            $this->get('/rentals');
+            $this->assertResponseOk();
+            if (env('RAPIDAPI_KEY')) {
+                $this->assertResponseContains('今月の無料枠 残り 0 / 300 回');
+                $this->assertResponseContains('badge-danger');
+            }
+        } finally {
+            $old ? Cache::write('rapidapi_quota', $old, 'geocode') : Cache::delete('rapidapi_quota', 'geocode');
+        }
     }
 }

@@ -12,8 +12,9 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     <h1>賃貸物件を地図で探す</h1>
     <p>エリアと賃料を指定すると、地図と一覧で賃貸物件を確認できます。</p>
     <div class="mt-2">
-        <span id="providerChip" class="badge badge-<?= $isDemo ? 'warning' : 'success' ?> p-2">
-            <?= $isDemo ? 'デモモード' : 'ライブ接続' ?> · <?= h($provider['label']) ?>
+        <?php $quotaLow = !$isDemo && !empty($quota) && $quota['remaining'] <= 30; ?>
+        <span id="providerChip" class="badge badge-<?= $isDemo ? 'warning' : (!empty($quota) && $quota['remaining'] <= 0 ? 'danger' : ($quotaLow ? 'warning' : 'success')) ?> p-2">
+            <?= $isDemo ? 'デモモード' : 'ライブ接続' ?> · <?= h($provider['label']) ?><?= (!$isDemo && !empty($quota)) ? ' · 今月の無料枠 残り ' . (int)$quota['remaining'] . ' / ' . (int)$quota['limit'] . ' 回' : '' ?>
         </span>
         <?php if ($isDemo): ?>
             <small class="text-muted ml-2">実際の物件を取得するには、環境変数 <code>RAPIDAPI_KEY</code>（RapidAPI の SUUMO API）または <code>HOMES_API_BEARER</code> を設定してください。</small>

@@ -17,6 +17,7 @@ use Cake\Http\Exception\BadRequestException;
 class RentalSearchService
 {
     private const HOMES_BASE = 'https://openai-api.homes.co.jp';
+    private const QUOTA_KEY = 'rapidapi_quota';
     private const RAPIDAPI_HOST = 'suumo-japan-real-estate.p.rapidapi.com';
 
     /**
@@ -29,9 +30,12 @@ class RentalSearchService
 
         $rapidKey = (string)env('RAPIDAPI_KEY', '');
         if ($rapidKey !== '') {
-            return $query['layouts'] !== []
+            $result = $query['layouts'] !== []
                 ? $this->searchRapidApiSuumoByLayout($query, $rapidKey)
                 : $this->searchRapidApiSuumo($query, $rapidKey);
+            $result['quota'] = Cache::read(self::QUOTA_KEY, 'geocode') ?: null;
+
+            return $result;
         }
 
         $homesToken = (string)env('HOMES_API_BEARER', '');
@@ -300,12 +304,13 @@ class RentalSearchService
 
         $status = $response['status'];
         $body = $response['body'];
+        $this->recordQuota($response['headers'] ?? [], $status);
         if ($status >= 400) {
             $hint = 'キーと「Suumo Japan Real Estate」の購読状態を確認してください。';
             if ($status === 403) {
                 $hint = 'API未購読の可能性が高いです。RapidAPIで Subscribe してください。';
             } elseif ($status === 429) {
-                $hint = '無料枠の上限に達した可能性があります。';
+                $hint = '今月の無料枠（月300回）を使い切った可能性があります。同じ条件の検索は、取得済みなら1時間は使えます。枠は約30日で回復します。';
             }
 
             return [
@@ -708,6 +713,26 @@ class RentalSearchService
      * @param array<int, string> $headers
      * @return array{status: int, body: string}
      */
+    /**
+     * RapidAPI の応答ヘッダーから無料枠の残りを記録する（画面表示用）。429 のときは残り0にする。
+     *
+     * @param array<string, string> $headers
+     */
+    private function recordQuota(array $headers, int $status): void
+    {
+        $remaining = $headers['x-ratelimit-requests-remaining'] ?? null;
+        $limit = $headers['x-ratelimit-requests-limit'] ?? null;
+        if ($remaining === null && $status !== 429) {
+            return;
+        }
+        $previous = Cache::read(self::QUOTA_KEY, 'geocode') ?: [];
+        Cache::write(self::QUOTA_KEY, [
+            'remaining' => $status === 429 ? 0 : (int)$remaining,
+            'limit' => $limit !== null ? (int)$limit : ($previous['limit'] ?? 300),
+            'reset_at' => isset($headers['x-ratelimit-requests-reset']) ? time() + (int)$headers['x-ratelimit-requests-reset'] : ($previous['reset_at'] ?? null),
+        ], 'geocode');
+    }
+
     private function httpGet(string $url, array $headers): array
     {
         if (function_exists('curl_init')) {
@@ -716,7 +741,16 @@ class RentalSearchService
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_TIMEOUT => 25,
+                CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+                    $parts = explode(':', $line, 2);
+                    if (count($parts) === 2) {
+                        $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
+                    }
+
+                    return strlen($line);
+                },
             ]);
+            $responseHeaders = [];
             $body = curl_exec($ch);
             $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
@@ -724,7 +758,7 @@ class RentalSearchService
                 return ['status' => 502, 'body' => $error !== '' ? $error : 'curl request failed'];
             }
 
-            return ['status' => $status > 0 ? $status : 502, 'body' => (string)$body];
+            return ['status' => $status > 0 ? $status : 502, 'body' => (string)$body, 'headers' => $responseHeaders];
         }
 
         $context = stream_context_create([
