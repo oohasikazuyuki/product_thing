@@ -789,6 +789,22 @@
         box.hidden = false;
     };
 
+    // URLの検索条件をフォームに戻す。条件が無ければ null
+    const restoreFromUrl = function () {
+        const q = new URLSearchParams(location.search);
+        if (!q.get('prefecture')) { return null; }
+        const form = document.getElementById('rentalSearchForm');
+        ['prefecture', 'month_money_room', 'month_money_room_h', 'area_min', 'area_max'].forEach(function (name) {
+            const el = form.elements[name];
+            if (el && q.get(name) !== null) { el.value = q.get(name); }
+        });
+        const layouts = (q.get('layouts') || '').split(',');
+        form.querySelectorAll('input[name="layouts"]').forEach(function (input) {
+            input.checked = layouts.indexOf(input.value) !== -1;
+        });
+        return { city: q.get('city') || '', page: Math.max(1, Number(q.get('page')) || 1) };
+    };
+
     const searchRentals = async function (page) {
         currentPage = page || 1;
         favMode = false;
@@ -822,6 +838,7 @@
                 return;
             }
             lastPayload = payload;
+            try { history.replaceState(null, '', '?' + params.toString()); } catch (e) { /* URLを更新できなくても検索は続行 */ }
             renderMarketCompare(payload, params.get('prefecture'), params.get('city'));
             renderMap(payload.items || []);
             renderResults(payload);
@@ -1016,8 +1033,14 @@
             map.resize();
             mapReady = true;
             resetMapView();
-            loadCities(config.defaultCity || '').then(function () {
-                setStatus('条件を選んで「検索」を押してください。');
+            // リロードしても直前の検索が消えないよう、URLに条件があれば復元して再検索する（ページ単位でサーバー側キャッシュされる）
+            const restored = restoreFromUrl();
+            loadCities(restored ? restored.city : (config.defaultCity || '')).then(function () {
+                if (restored) {
+                    searchRentals(restored.page);
+                } else {
+                    setStatus('条件を選んで「検索」を押してください。');
+                }
             });
         });
 
