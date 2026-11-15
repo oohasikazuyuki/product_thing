@@ -249,7 +249,7 @@ class RentalSearchService
             'items' => array_slice($matches, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
             'demo' => false,
             'scanned' => $scanned,
-            'message' => '先頭' . $scanned . '件から間取りで絞り込みました（無料枠の節約のため）。'
+            'message' => null
                 . ($matches === [] ? ' 該当がなければ、賃料や面積の範囲を広げてください。' : ''),
         ];
     }

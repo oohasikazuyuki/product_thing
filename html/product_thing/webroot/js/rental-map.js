@@ -621,13 +621,13 @@
                     setStatusWithLink(route.message || '駅からの道のりを取得できませんでした。', routeUrl(item));
                     return;
                 }
-                let source = '地図データ(OSM)による目安';
+                let source = 'OSM';
                 const google_ = await googleWalkRoute({ lat: route.station.lat, lng: route.station.lng }, { lat: lat, lng: lng });
                 if (google_) {
                     route.line = google_.line;
                     route.distance_m = google_.distance_m;
                     route.minutes = google_.minutes;
-                    source = 'Googleの徒歩ルート';
+                    source = 'Google';
                 }
                 entry = routeCache[item.id] = { route: route, source: source };
             }
@@ -637,12 +637,12 @@
             setWalkRoute(route);
             // 掲載の徒歩時間と3分以上ずれるときは、位置や経路が不正確な可能性を伝える
             walkNotice = item.walk_minutes && Math.abs(route.minutes - Number(item.walk_minutes)) >= 3
-                ? '⚠ 掲載（徒歩' + item.walk_minutes + '分）と差が大きいため、物件の位置や経路が実際と異なる可能性があります。参考程度にご覧ください。'
+                ? '⚠ 掲載と差が大きく、位置・経路が実際と異なる可能性があります。'
                 : '';
             entry.mismatch = walkNotice !== '';
             refreshWarnTag(item.id);
-            setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
-                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路: ' + source + (walkNotice ? ' ' + walkNotice : ''));
+            setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分・' + source + '）' +
+                (item.walk_minutes ? ' ・ 掲載は徒歩' + item.walk_minutes + '分' : '') + (walkNotice ? ' ' + walkNotice : ''));
         } catch (error) {
             setStatus('駅からの道のりの取得中にエラーが発生しました。');
         } finally {
@@ -952,9 +952,9 @@
         const yieldPct = rentSqm * 12 / sale.sqm * 100;
         const cityName = (document.querySelector('#city option:checked') || {}).textContent || '';
         box.innerHTML = '<strong>売買相場との比較' + (cityName ? '（' + escapeHtml(cityName) + '）' : '') + '</strong>' +
-            '<div class="mt-1">売買 約 ' + Math.round(sale.sqm / 10000).toLocaleString() + ' 万円/㎡ <span class="text-muted">（' + sale.year + '年の中古マンション等 ' + sale.count.toLocaleString() + ' 件の中央値）</span></div>' +
-            '<div>賃貸 約 ' + Math.round(rentSqm).toLocaleString() + ' 円/㎡・月 <span class="text-muted">（表示中 ' + rents.length + ' 件の中央値）</span></div>' +
-            '<div>表面利回りの目安 約 <strong>' + yieldPct.toFixed(1) + '%</strong> <span class="text-muted">（賃料×12 ÷ 売買価格。管理費・空室・諸経費は含まない参考値）</span></div>';
+            '<div class="mt-1">売買 約 ' + Math.round(sale.sqm / 10000).toLocaleString() + ' 万円/㎡ <span class="text-muted">（' + sale.year + '年 中古マンション等の中央値）</span></div>' +
+            '<div>賃貸 約 ' + Math.round(rentSqm).toLocaleString() + ' 円/㎡・月 <span class="text-muted">（表示中の中央値）</span></div>' +
+            '<div>表面利回りの目安 約 <strong>' + yieldPct.toFixed(1) + '%</strong> <span class="text-muted">（賃料×12 ÷ 売買価格・参考値）</span></div>';
         box.hidden = false;
     };
 
@@ -1011,29 +1011,27 @@
             if (layoutNote) {
                 layoutNote.hidden = !payload.scanned;
                 layoutNote.textContent = payload.scanned
-                    ? '間取りの絞り込みは、検索結果の先頭' + payload.scanned + '件が対象です。見つからないときは、賃料や面積の範囲を絞って再検索すると、見落としが減ります。'
+                    ? '間取りの絞り込みは、検索結果の先頭' + payload.scanned + '件が対象です。'
                     : '';
             }
             try { history.replaceState(null, '', '?' + params.toString()); } catch (e) { /* URLを更新できなくても検索は続行 */ }
             renderMarketCompare(payload, params.get('prefecture'), params.get('city'));
             renderView();
             renderPager(payload);
-            const mode = payload.demo ? 'デモ' : 'ライブ';
+            const shown = (payload.items || []).length;
             setStatus(
-                mode + ' · ' + (payload.provider_label || payload.provider || '') +
-                ((payload.items || []).length > 0 ? ' · 地図に ' + plottedCount + ' / ' + (payload.items || []).length + ' 件（位置情報のない物件は一覧のみ）' : '') +
-                (payload.message ? ' — ' + payload.message : '')
+                (shown > 0 ? '地図に ' + plottedCount + ' / ' + shown + ' 件' : '') +
+                (payload.message ? (shown > 0 ? ' — ' : '') + payload.message : '')
             );
             const chip = document.getElementById('providerChip');
             if (chip) {
                 chip.classList.toggle('badge-warning', !!payload.demo);
                 chip.classList.toggle('badge-success', !payload.demo);
-                chip.textContent = (payload.demo ? 'デモモード' : 'ライブ接続') +
-                    ' · ' + (payload.provider_label || payload.provider || '');
+                chip.textContent = payload.demo ? 'デモモード' : 'ライブ';
                 // 無料枠の残り（少なくなったら色を変える）
                 const quota = payload.quota;
                 if (quota && typeof quota.remaining === 'number') {
-                    chip.textContent += ' · 今月の無料枠 残り ' + quota.remaining + ' / ' + quota.limit + ' 回';
+                    chip.textContent += ' · 無料枠 残り ' + quota.remaining + ' / ' + quota.limit + ' 回';
                     chip.classList.toggle('badge-danger', quota.remaining <= 0);
                     chip.classList.toggle('badge-warning', !!payload.demo || (quota.remaining > 0 && quota.remaining <= 30));
                     chip.classList.toggle('badge-success', !payload.demo && quota.remaining > 30);
