@@ -82,6 +82,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
                 <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
             </div>
+            <button type="button" id="walkBtn" class="btn btn-sm btn-primary mr-2" hidden>🚶 ストリートビューで歩く</button>
             <span id="searchStatus" class="small text-muted" role="status" aria-live="polite">条件を選んで「検索」を押してください。</span>
         </div>
         <div id="rentalMap" class="map-canvas" role="img" aria-label="賃貸物件の地図"></div>
@@ -101,6 +102,30 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     </div>
 </div>
 
+<div class="modal fade" id="walkModal" tabindex="-1" role="dialog" aria-labelledby="walkTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="walkTitle">駅からの道のり（ストリートビュー）</h2>
+                <a id="walkExternal" class="ml-auto mr-3 small" href="#" target="_blank" rel="noopener">新しいタブで開く</a>
+                <button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="walkFrame" title="ストリートビュー" style="width:100%;height:65vh;border:0" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="walkPrev">◀ 前へ</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="walkPlay" aria-pressed="false">▶ 自動再生</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="walkNext">次へ ▶</button>
+                </div>
+                <span class="small text-muted" id="walkInfo" role="status" aria-live="polite"></span>
+            </div>
+            <p class="small text-muted px-3 pb-2 mb-0">地点ごとに表示を切り替えます（←→キーでも進めます）。ストリートビューが無い場所では、表示されないことがあります。</p>
+        </div>
+    </div>
+</div>
+
 <?php $this->start('css'); ?>
 <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
 <?php $this->end(); ?>
@@ -111,6 +136,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
         searchEndpoint: <?= json_encode($this->Url->build(['controller' => 'RentalSearch', 'action' => 'search'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         routeEndpoint: <?= json_encode($this->Url->build('/api/rentals/route'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         citiesEndpoint: <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'cities'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+        googleMapsApiKey: <?= json_encode($googleMapsApiKey ?? null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         defaultCity: '13113'
     };
 </script>

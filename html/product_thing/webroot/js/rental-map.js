@@ -11,6 +11,10 @@
     let plottedCount = 0;
     let itemsById = {};
     let lastPayload = null;
+    let walkPoints = [];
+    let walkIndex = 0;
+    let walkTimer = null;
+    let walkMarker = null;
     let favMode = false;
     let stationMarker = null;
     const PER_PAGE = 20;
@@ -161,6 +165,9 @@
     };
 
     const clearRoute = function () {
+        walkPoints = [];
+        const walkBtn = document.getElementById('walkBtn');
+        if (walkBtn) { walkBtn.hidden = true; }
         if (stationMarker) {
             stationMarker.remove();
             stationMarker = null;
@@ -168,6 +175,86 @@
         if (map && mapReady && map.getSource('walk-route')) {
             map.getSource('walk-route').setData({ type: 'FeatureCollection', features: [] });
         }
+    };
+
+    // ---- ストリートビューで道のりを歩く ----
+    const toRad = function (d) { return d * Math.PI / 180; };
+    const distanceM = function (a, b) {
+        const dLat = toRad(b[1] - a[1]);
+        const dLng = toRad(b[0] - a[0]);
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+        return 12742000 * Math.asin(Math.sqrt(h));
+    };
+    const bearing = function (a, b) {
+        const y = Math.sin(toRad(b[0] - a[0])) * Math.cos(toRad(b[1]));
+        const x = Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) - Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
+        return Math.round((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
+    };
+    // 経路を約stepMごとの地点に間引き、各地点に「次の地点への向き」を付ける
+    const sampleRoute = function (line, stepM) {
+        const pts = [line[0]];
+        let acc = 0;
+        for (let i = 1; i < line.length; i += 1) {
+            acc += distanceM(line[i - 1], line[i]);
+            if (acc >= stepM) {
+                pts.push(line[i]);
+                acc = 0;
+            }
+        }
+        const last = line[line.length - 1];
+        if (pts[pts.length - 1] !== last) { pts.push(last); }
+        return pts.map(function (p, i) {
+            const next = pts[i + 1];
+            const prev = pts[i - 1];
+            return { lng: p[0], lat: p[1], heading: next ? bearing(p, next) : (prev ? bearing(prev, p) : 0) };
+        });
+    };
+    const setWalkRoute = function (route) {
+        walkPoints = Array.isArray(route.line) && route.line.length > 1 ? sampleRoute(route.line, 30) : [];
+        const btn = document.getElementById('walkBtn');
+        if (btn) { btn.hidden = walkPoints.length === 0; }
+    };
+    const walkFrameUrl = function (pt, external) {
+        const loc = pt.lat + ',' + pt.lng;
+        if (external) {
+            return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + loc + '&heading=' + pt.heading;
+        }
+        if (config.googleMapsApiKey) {
+            return 'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(config.googleMapsApiKey) +
+                '&location=' + loc + '&heading=' + pt.heading + '&pitch=0&fov=90';
+        }
+        return 'https://maps.google.com/maps?layer=c&cbll=' + loc + '&cbp=11,' + pt.heading + ',0,0,0&output=svembed';
+    };
+    const stopWalk = function () {
+        if (walkTimer) { clearInterval(walkTimer); walkTimer = null; }
+        const play = document.getElementById('walkPlay');
+        if (play) { play.textContent = '▶ 自動再生'; play.setAttribute('aria-pressed', 'false'); }
+    };
+    const showWalkPoint = function (i) {
+        if (walkPoints.length === 0) { return; }
+        walkIndex = Math.max(0, Math.min(walkPoints.length - 1, i));
+        const pt = walkPoints[walkIndex];
+        document.getElementById('walkFrame').src = walkFrameUrl(pt, false);
+        document.getElementById('walkExternal').href = walkFrameUrl(pt, true);
+        document.getElementById('walkInfo').textContent = (walkIndex + 1) + ' / ' + walkPoints.length + ' 地点' +
+            (walkIndex === 0 ? '（駅）' : (walkIndex === walkPoints.length - 1 ? '（物件）' : ''));
+        document.getElementById('walkPrev').disabled = walkIndex === 0;
+        document.getElementById('walkNext').disabled = walkIndex === walkPoints.length - 1;
+        if (map) {
+            if (!walkMarker) {
+                walkMarker = new maplibregl.Marker({ color: '#f59e0b' });
+            }
+            walkMarker.setLngLat([pt.lng, pt.lat]).addTo(map);
+        }
+        if (walkIndex === walkPoints.length - 1) { stopWalk(); }
+    };
+    const toggleWalkPlay = function () {
+        if (walkTimer) { stopWalk(); return; }
+        if (walkIndex >= walkPoints.length - 1) { showWalkPoint(0); }
+        const play = document.getElementById('walkPlay');
+        play.textContent = '⏸ 停止';
+        play.setAttribute('aria-pressed', 'true');
+        walkTimer = setInterval(function () { showWalkPoint(walkIndex + 1); }, 2500);
     };
 
     const drawRoute = function (route) {
@@ -216,6 +303,7 @@
                 return;
             }
             drawRoute(route);
+            setWalkRoute(route);
             setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
                 (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路は地図データによる目安です');
         } catch (error) {
@@ -626,6 +714,28 @@
                 activateItem(locate.dataset.locate, true);
             }
         });
+
+        const walkBtn = document.getElementById('walkBtn');
+        if (walkBtn) {
+            walkBtn.addEventListener('click', function () {
+                if (walkPoints.length === 0) { return; }
+                $('#walkModal').modal('show');
+                showWalkPoint(0);
+            });
+            document.getElementById('walkPrev').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex - 1); });
+            document.getElementById('walkNext').addEventListener('click', function () { stopWalk(); showWalkPoint(walkIndex + 1); });
+            document.getElementById('walkPlay').addEventListener('click', toggleWalkPlay);
+            $('#walkModal').on('hidden.bs.modal', function () {
+                stopWalk();
+                document.getElementById('walkFrame').src = 'about:blank';
+                if (walkMarker) { walkMarker.remove(); }
+            });
+            document.addEventListener('keydown', function (event) {
+                if (!document.getElementById('walkModal').classList.contains('show')) { return; }
+                if (event.key === 'ArrowRight') { stopWalk(); showWalkPoint(walkIndex + 1); }
+                if (event.key === 'ArrowLeft') { stopWalk(); showWalkPoint(walkIndex - 1); }
+            });
+        }
 
         const favToggle = document.getElementById('favToggle');
         if (favToggle) {
