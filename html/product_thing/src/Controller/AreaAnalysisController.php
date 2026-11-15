@@ -50,6 +50,7 @@ class AreaAnalysisController extends AppController
             $selectedDistrict = '';
         }
 
+        $this->set('googleMapsApiKey', env('GOOGLE_MAPS_API_KEY') ?: null);
         $this->set('area', $selectedArea);
         $this->set('city', $selectedCity);
         $this->set('year', $selectedYear);
