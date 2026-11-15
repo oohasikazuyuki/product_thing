@@ -12,7 +12,8 @@ class RentalSearchController extends AppController
     {
         $provider = (new RentalSearchService())->providerStatus();
         $prefectures = \App\Service\Prefectures::all();
-        $this->set(compact('provider', 'prefectures'));
+        $googleMapsApiKey = env('GOOGLE_MAPS_API_KEY') ?: null;
+        $this->set(compact('provider', 'prefectures', 'googleMapsApiKey'));
     }
 
     public function search()
