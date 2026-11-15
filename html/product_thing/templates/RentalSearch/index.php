@@ -96,6 +96,23 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <button type="button" id="favToggle" class="btn btn-outline-secondary btn-sm" aria-pressed="false">★ お気に入り (0)</button>
             </span>
         </div>
+        <div class="d-flex flex-wrap align-items-center small mb-2" id="viewOptions">
+            <label class="mb-0 mr-1" for="sortBy">並べ替え</label>
+            <select id="sortBy" class="form-control form-control-sm w-auto mr-3">
+                <option value="">標準</option>
+                <option value="rent">賃料が安い順</option>
+                <option value="area">面積が広い順</option>
+                <option value="walk">駅が近い順</option>
+            </select>
+            <label class="mb-0 mr-1" for="maxWalk">駅徒歩</label>
+            <select id="maxWalk" class="form-control form-control-sm w-auto">
+                <option value="">指定なし</option>
+                <option value="5">5分以内</option>
+                <option value="10">10分以内</option>
+                <option value="15">15分以内</option>
+            </select>
+            <span class="text-muted ml-2">（表示中のページが対象）</span>
+        </div>
         <div id="layoutNote" class="small text-muted mb-2" hidden></div>
         <div id="rentalResults" class="listing-scroll">
             <div class="listing-empty">条件を指定して検索してください。</div>

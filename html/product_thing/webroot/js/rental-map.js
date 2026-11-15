@@ -655,8 +655,7 @@
         if (on) {
             showFavorites();
         } else if (lastPayload) {
-            renderMap(lastPayload.items || []);
-            renderResults(lastPayload);
+            renderView();
             renderPager(lastPayload);
             setStatus('検索結果に戻りました。');
         } else {
@@ -691,22 +690,54 @@
         box.insertAdjacentHTML('beforeend', WARN_TAG);
     };
 
+    // 表示中のページ内での並べ替え・駅徒歩の絞り込み（APIに条件が無いため、取得済みの20件が対象）
+    const viewState = { sort: '', maxWalk: 0 };
+    const sortKeys = {
+        rent: function (i) { return i.rent_yen > 0 ? i.rent_yen : Infinity; },
+        area: function (i) { return i.area_m2 > 0 ? -i.area_m2 : Infinity; },
+        walk: function (i) { return i.walk_minutes > 0 ? Number(i.walk_minutes) : Infinity; }
+    };
+    const viewItems = function (items) {
+        let out = items.slice();
+        if (viewState.maxWalk > 0) {
+            out = out.filter(function (i) { return i.walk_minutes > 0 && Number(i.walk_minutes) <= viewState.maxWalk; });
+        }
+        const key = sortKeys[viewState.sort];
+        if (key) {
+            out.sort(function (a, b) { return key(a) - key(b); }); // 値の無い物件は末尾（Infinity）
+        }
+        return out;
+    };
+    const renderView = function () {
+        if (!lastPayload) { return; }
+        const all = lastPayload.items || [];
+        const active = viewState.sort !== '' || viewState.maxWalk > 0;
+        const payload = active ? Object.assign({}, lastPayload, { items: viewItems(all), viewFiltered: all.length }) : lastPayload;
+        renderMap(payload.items || []);
+        renderResults(payload);
+    };
+
     const renderResults = function (payload) {
         const root = document.getElementById('rentalResults');
         root.innerHTML = '';
         const items = Array.isArray(payload.items) ? payload.items : [];
         itemsById = {};
         items.forEach(function (item) { itemsById[item.id] = item; });
+        const viewFiltered = payload.viewFiltered !== undefined; // 並べ替え・絞り込み中（このページ内だけが対象）
         if (items.length === 0) {
-            root.innerHTML = '<div class="listing-empty">該当する物件がありません。条件を広げて再検索してください。</div>';
-            setResultCount('0 件');
+            root.innerHTML = viewFiltered
+                ? '<div class="listing-empty">このページには該当する物件がありません。並べ替え・絞り込みを解除するか、ほかのページをご覧ください。</div>'
+                : '<div class="listing-empty">該当する物件がありません。条件を広げて再検索してください。</div>';
+            setResultCount(viewFiltered ? 'このページ ' + payload.viewFiltered + ' 件のうち 0 件' : '0 件');
             return;
         }
 
         const total = payload.total || items.length;
         const from = (currentPage - 1) * (payload.per_page || PER_PAGE) + 1;
-        setResultCount(from.toLocaleString() + '–' + (from + items.length - 1).toLocaleString() + ' / ' + Number(total).toLocaleString() + ' 件' +
-            (payload.scanned ? '（先頭' + payload.scanned + '件中）' : ''));
+        setResultCount(viewFiltered
+            ? 'このページ ' + payload.viewFiltered + ' 件のうち ' + items.length + ' 件'
+            : from.toLocaleString() + '–' + (from + items.length - 1).toLocaleString() + ' / ' + Number(total).toLocaleString() + ' 件' +
+                (payload.scanned ? '（先頭' + payload.scanned + '件中）' : ''));
         const frag = document.createDocumentFragment();
         items.forEach(function (item) {
             const el = document.createElement('div');
@@ -878,8 +909,7 @@
             }
             try { history.replaceState(null, '', '?' + params.toString()); } catch (e) { /* URLを更新できなくても検索は続行 */ }
             renderMarketCompare(payload, params.get('prefecture'), params.get('city'));
-            renderMap(payload.items || []);
-            renderResults(payload);
+            renderView();
             renderPager(payload);
             const mode = payload.demo ? 'デモ' : 'ライブ';
             setStatus(
@@ -1067,6 +1097,13 @@
                 if (event.key === 'ArrowRight') { stopWalk(); showWalkPoint(walkIndex + 1); }
                 if (event.key === 'ArrowLeft') { stopWalk(); showWalkPoint(walkIndex - 1); }
             });
+        }
+
+        const sortBy = document.getElementById('sortBy');
+        const maxWalk = document.getElementById('maxWalk');
+        if (sortBy && maxWalk) {
+            sortBy.addEventListener('change', function () { viewState.sort = sortBy.value; if (!favMode) { renderView(); } });
+            maxWalk.addEventListener('change', function () { viewState.maxWalk = Number(maxWalk.value) || 0; if (!favMode) { renderView(); } });
         }
 
         const favToggle = document.getElementById('favToggle');
