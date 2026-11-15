@@ -4,7 +4,7 @@
     const config = window.RENTAL_MAP_CONFIG || {};
     const defaultCenter = [139.6917, 35.6895];
     const defaultZoom = 12;
-    let map;
+    let mv = null; // 地図ビュー（Google版 or MapLibre版。下の createGoogleView / createMapLibreView）
     let markers = [];
     let markersById = {};
     let currentPage = 1;
@@ -18,9 +18,7 @@
     let walkTurnRaf = 0;
     let walkIndex = 0;
     let walkTimer = null;
-    let walkMarker = null;
     let favMode = false;
-    let stationMarker = null;
     const PER_PAGE = 20;
     let mapReady = false;
 
@@ -115,6 +113,144 @@
         }
     };
 
+    // ---- 地図の抽象化：Googleマップ版（キーがあるとき）と MapLibre版（無いとき・失敗時）----
+    // 座標は [経度, 緯度]。マーカーは {remove, open, isOpen} を返す
+    const createMapLibreView = function (container) {
+        const map = new maplibregl.Map({
+            container: container,
+            style: {
+                version: 8,
+                sources: {
+                    osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '&copy; OpenStreetMap contributors' },
+                    'gsi-photo': { type: 'raster', tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'], tileSize: 256, attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>' }
+                },
+                layers: [
+                    { id: 'osm', type: 'raster', source: 'osm' },
+                    { id: 'gsi-photo', type: 'raster', source: 'gsi-photo', layout: { visibility: 'none' } }
+                ]
+            },
+            center: defaultCenter, zoom: defaultZoom, minZoom: 5, maxZoom: 18
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        let station = null;
+        let walk = null;
+        const setRouteData = function (line) {
+            const geojson = { type: 'Feature', geometry: { type: 'LineString', coordinates: line } };
+            if (map.getSource('walk-route')) {
+                map.getSource('walk-route').setData(geojson);
+            } else {
+                map.addSource('walk-route', { type: 'geojson', data: geojson });
+                map.addLayer({ id: 'walk-route-line', type: 'line', source: 'walk-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.85 } });
+            }
+        };
+        return {
+            kind: 'maplibre',
+            onReady: function (cb) { map.on('load', cb); },
+            resize: function () { map.resize(); },
+            reset: function () { map.jumpTo({ center: defaultCenter, zoom: defaultZoom }); },
+            flyTo: function (c, zoom) { map.flyTo({ center: c, zoom: zoom, essential: true }); },
+            fit: function (coords, o) {
+                const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
+                coords.forEach(function (c) { bounds.extend(c); });
+                map.fitBounds(bounds, { padding: o.padding || 0, maxZoom: o.maxZoom, minZoom: o.minZoom, essential: true });
+            },
+            addMarker: function (c, color, html, onClick) {
+                const marker = new maplibregl.Marker({ color: color }).setLngLat(c)
+                    .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(html)).addTo(map);
+                if (onClick) { marker.getElement().addEventListener('click', onClick); }
+                return {
+                    remove: function () { marker.remove(); },
+                    open: function () { if (!marker.getPopup().isOpen()) { marker.togglePopup(); } },
+                    isOpen: function () { return marker.getPopup().isOpen(); }
+                };
+            },
+            setRoute: function (line) { setRouteData(line); },
+            setStation: function (c, name) {
+                if (station) { station.remove(); }
+                station = new maplibregl.Marker({ color: '#2563eb' }).setLngLat(c)
+                    .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setText(name)).addTo(map);
+            },
+            clearRoute: function () {
+                if (station) { station.remove(); station = null; }
+                if (map.getSource('walk-route')) { map.getSource('walk-route').setData({ type: 'FeatureCollection', features: [] }); }
+            },
+            setWalk: function (c) {
+                if (!c) { if (walk) { walk.remove(); } return; }
+                if (!walk) { walk = new maplibregl.Marker({ color: '#f59e0b' }); }
+                walk.setLngLat(c).addTo(map);
+            },
+            setBasemap: function (aerial) { map.setLayoutProperty('gsi-photo', 'visibility', aerial ? 'visible' : 'none'); },
+            destroy: function () { map.remove(); }
+        };
+    };
+
+    const createGoogleView = function (container) {
+        const ll = function (c) { return { lat: c[1], lng: c[0] }; };
+        const dot = function (color, scale) {
+            return { path: google.maps.SymbolPath.CIRCLE, fillColor: color, fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2, scale: scale };
+        };
+        const gmap = new google.maps.Map(container, {
+            center: ll(defaultCenter), zoom: defaultZoom, minZoom: 5, maxZoom: 20,
+            mapTypeControl: false, fullscreenControl: false, streetViewControl: true, // ペグマンでストリートビューへ
+            clickableIcons: false, gestureHandling: 'greedy'
+        });
+        const info = new google.maps.InfoWindow();
+        let openFor = null;
+        let line = null;
+        let station = null;
+        let walk = null;
+        gmap.addListener('click', function () { info.close(); openFor = null; });
+        info.addListener('closeclick', function () { openFor = null; });
+        return {
+            kind: 'google',
+            onReady: function (cb) { google.maps.event.addListenerOnce(gmap, 'idle', cb); },
+            resize: function () { google.maps.event.trigger(gmap, 'resize'); },
+            reset: function () { gmap.setCenter(ll(defaultCenter)); gmap.setZoom(defaultZoom); },
+            flyTo: function (c, zoom) { gmap.panTo(ll(c)); gmap.setZoom(zoom); },
+            fit: function (coords, o) {
+                const bounds = new google.maps.LatLngBounds();
+                coords.forEach(function (c) { bounds.extend(ll(c)); });
+                gmap.fitBounds(bounds, o.padding || 0);
+                if (o.maxZoom) {
+                    google.maps.event.addListenerOnce(gmap, 'idle', function () {
+                        if (gmap.getZoom() > o.maxZoom) { gmap.setZoom(o.maxZoom); }
+                    });
+                }
+            },
+            addMarker: function (c, color, html, onClick) {
+                const marker = new google.maps.Marker({ position: ll(c), map: gmap, icon: dot(color, 9) });
+                const open = function () { info.setContent(html); info.open({ map: gmap, anchor: marker }); openFor = marker; };
+                marker.addListener('click', function () { open(); if (onClick) { onClick(); } });
+                return {
+                    remove: function () { if (openFor === marker) { info.close(); openFor = null; } marker.setMap(null); },
+                    open: open,
+                    isOpen: function () { return openFor === marker; }
+                };
+            },
+            setRoute: function (path) {
+                if (line) { line.setMap(null); }
+                line = new google.maps.Polyline({ path: path.map(ll), strokeColor: '#2563eb', strokeOpacity: 0.85, strokeWeight: 6, map: gmap });
+            },
+            setStation: function (c, name) {
+                if (station) { station.setMap(null); }
+                station = new google.maps.Marker({ position: ll(c), map: gmap, icon: dot('#2563eb', 11), title: name, zIndex: 5 });
+                station.addListener('click', function () { info.setContent('<strong>' + escapeHtml(name) + '</strong>'); info.open({ map: gmap, anchor: station }); openFor = station; });
+            },
+            clearRoute: function () {
+                if (line) { line.setMap(null); line = null; }
+                if (station) { station.setMap(null); station = null; }
+            },
+            setWalk: function (c) {
+                if (!c) { if (walk) { walk.setMap(null); } return; }
+                if (!walk) { walk = new google.maps.Marker({ icon: dot('#f59e0b', 8), zIndex: 10 }); }
+                walk.setPosition(ll(c));
+                walk.setMap(gmap);
+            },
+            setBasemap: function (aerial) { gmap.setMapTypeId(aerial ? 'hybrid' : 'roadmap'); },
+            destroy: function () { google.maps.event.clearInstanceListeners(gmap); }
+        };
+    };
+
     const clearMarkers = function () {
         markers.forEach(function (marker) {
             marker.remove();
@@ -136,22 +272,38 @@
             }
         }
         const entry = markersById[id];
-        if (flyToMarker && entry && map && mapReady) {
-            map.flyTo({ center: entry.lngLat, zoom: 16, essential: true });
-            if (!entry.marker.getPopup().isOpen()) {
-                entry.marker.togglePopup();
-            }
+        if (flyToMarker && entry && mv && mapReady) {
+            mv.flyTo(entry.lngLat, 16);
+            entry.marker.open();
         }
     };
 
     const resetMapView = function () {
-        if (!map || !mapReady) {
+        if (!mv || !mapReady) {
             return;
         }
-        map.jumpTo({ center: defaultCenter, zoom: defaultZoom });
+        mv.reset();
     };
 
-    // ステータスに説明と「Googleマップで開く」リンクを出す（別タブは利用者が選んだときだけ開く）
+    // Googleマップが認証エラー等で使えなくなったら、MapLibre版に切り替えて表示を作り直す
+    const switchToMapLibre = function () {
+        if (!mv || mv.kind !== 'google') { return; }
+        config.googleMapsApiKey = null;
+        clearMarkers();
+        mv.destroy();
+        mapReady = false;
+        const el = document.getElementById('rentalMap');
+        el.innerHTML = '';
+        mv = createMapLibreView(el);
+        const view = mv;
+        view.onReady(function () {
+            view.resize();
+            mapReady = true;
+            view.reset();
+            renderView();
+        });
+    };
+
     const setStatusWithLink = function (message, url) {
         const el = document.getElementById('searchStatus');
         if (!el) {
@@ -173,12 +325,8 @@
         walkNotice = '';
         const walkBtn = document.getElementById('walkBtn');
         if (walkBtn) { walkBtn.hidden = true; }
-        if (stationMarker) {
-            stationMarker.remove();
-            stationMarker = null;
-        }
-        if (map && mapReady && map.getSource('walk-route')) {
-            map.getSource('walk-route').setData({ type: 'FeatureCollection', features: [] });
+        if (mv && mapReady) {
+            mv.clearRoute();
         }
     };
 
@@ -255,9 +403,9 @@
         if (!mapsApiPromise) {
             mapsApiPromise = new Promise(function (resolve, reject) {
                 if (window.google && google.maps && google.maps.StreetViewPanorama) { resolve(); return; }
-                window.gm_authFailure = function () { fallbackToFrames(); }; // キー無効・API未有効のとき
+                window.gm_authFailure = function () { switchToMapLibre(); fallbackToFrames(); }; // キー無効・API未有効のとき
                 const script = document.createElement('script');
-                script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.googleMapsApiKey) + '&v=weekly';
+                script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.googleMapsApiKey) + '&v=weekly&language=ja&region=JP';
                 script.async = true;
                 script.onload = resolve;
                 script.onerror = function () { reject(new Error('maps api')); };
@@ -373,11 +521,8 @@
             (walkIndex === 0 ? '（駅）' : (walkIndex === walkPoints.length - 1 ? '（物件）' : ''));
         document.getElementById('walkPrev').disabled = walkIndex === 0;
         document.getElementById('walkNext').disabled = walkIndex === walkPoints.length - 1;
-        if (map) {
-            if (!walkMarker) {
-                walkMarker = new maplibregl.Marker({ color: '#f59e0b' });
-            }
-            walkMarker.setLngLat([pt.lng, pt.lat]).addTo(map);
+        if (mv && mapReady) {
+            mv.setWalk([pt.lng, pt.lat]);
         }
         if (walkPano) {
             // JS API：iframeを作り直さず、位置と向きだけ動かす
@@ -407,27 +552,9 @@
     };
 
     const drawRoute = function (route) {
-        const geojson = { type: 'Feature', geometry: { type: 'LineString', coordinates: route.line } };
-        if (map.getSource('walk-route')) {
-            map.getSource('walk-route').setData(geojson);
-        } else {
-            map.addSource('walk-route', { type: 'geojson', data: geojson });
-            map.addLayer({
-                id: 'walk-route-line', type: 'line', source: 'walk-route',
-                layout: { 'line-cap': 'round', 'line-join': 'round' },
-                paint: { 'line-color': '#2563eb', 'line-width': 6, 'line-opacity': 0.85 }
-            });
-        }
-        if (stationMarker) {
-            stationMarker.remove();
-        }
-        stationMarker = new maplibregl.Marker({ color: '#2563eb' })
-            .setLngLat([route.station.lng, route.station.lat])
-            .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setText(route.station.name))
-            .addTo(map);
-        const bounds = new maplibregl.LngLatBounds(route.line[0], route.line[0]);
-        route.line.forEach(function (c) { bounds.extend(c); });
-        map.fitBounds(bounds, { padding: 80, maxZoom: 17, essential: true });
+        mv.setRoute(route.line);
+        mv.setStation([route.station.lng, route.station.lat], route.station.name);
+        mv.fit(route.line, { padding: 80, maxZoom: 17 });
     };
 
     // 駅から物件までの徒歩ルートを地図に表示（取得できない場合はGoogleマップを開く）
@@ -560,7 +687,7 @@
     };
 
     const renderMap = function (items) {
-        if (!map || !mapReady) {
+        if (!mv || !mapReady) {
             return;
         }
         clearMarkers();
@@ -573,41 +700,21 @@
             if (!isJapanCoordinate(lat, lng)) {
                 return;
             }
-            const marker = new maplibregl.Marker({ color: '#14532d' })
-                .setLngLat([lng, lat])
-                .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml(item)))
-                .addTo(map);
-            markers.push(marker);
-            markersById[item.id] = { marker: marker, lngLat: [lng, lat] };
-            marker.getElement().addEventListener('click', function () {
+            const marker = mv.addMarker([lng, lat], '#14532d', popupHtml(item), function () {
                 activateItem(item.id, false);
             });
+            markers.push(marker);
+            markersById[item.id] = { marker: marker, lngLat: [lng, lat] };
             plotted.push([lng, lat]);
             plottedCount += 1;
         });
 
         if (plotted.length === 0) {
             resetMapView();
-            return;
-        }
-        if (plotted.length === 1) {
-            map.flyTo({ center: plotted[0], zoom: 14, essential: true });
-            return;
-        }
-
-        const bounds = new maplibregl.LngLatBounds(plotted[0], plotted[0]);
-        plotted.slice(1).forEach(function (coordinate) {
-            bounds.extend(coordinate);
-        });
-        if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, {
-                padding: 56,
-                maxZoom: 14,
-                minZoom: 10,
-                essential: true
-            });
+        } else if (plotted.length === 1) {
+            mv.flyTo(plotted[0], 14);
         } else {
-            resetMapView();
+            mv.fit(plotted, { padding: 56, maxZoom: 14, minZoom: 10 });
         }
     };
 
@@ -941,40 +1048,11 @@
     };
 
     document.addEventListener('DOMContentLoaded', function () {
-        map = new maplibregl.Map({
-            container: 'rentalMap',
-            style: {
-                version: 8,
-                sources: {
-                    osm: {
-                        type: 'raster',
-                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                        tileSize: 256,
-                        attribution: '&copy; OpenStreetMap contributors'
-                    },
-                    'gsi-photo': {
-                        type: 'raster',
-                        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'],
-                        tileSize: 256,
-                        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>'
-                    }
-                },
-                layers: [
-                    { id: 'osm', type: 'raster', source: 'osm' },
-                    { id: 'gsi-photo', type: 'raster', source: 'gsi-photo', layout: { visibility: 'none' } }
-                ]
-            },
-            center: defaultCenter,
-            zoom: defaultZoom,
-            minZoom: 5,
-            maxZoom: 18
-        });
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
         document.querySelectorAll('[data-basemap]').forEach(function (button) {
             button.addEventListener('click', function () {
-                const aerial = button.dataset.basemap === 'aerial';
-                map.setLayoutProperty('gsi-photo', 'visibility', aerial ? 'visible' : 'none');
+                if (mv && mapReady) {
+                    mv.setBasemap(button.dataset.basemap === 'aerial');
+                }
                 document.querySelectorAll('[data-basemap]').forEach(function (b) {
                     b.classList.toggle('active', b === button);
                 });
@@ -1013,7 +1091,7 @@
 
         // 地図のポップアップ内ボタン（動的に作られるのでdocumentで受ける）
         document.addEventListener('click', function (event) {
-            const route = event.target.closest('.maplibregl-popup [data-route-id]');
+            const route = event.target.closest('.maplibregl-popup [data-route-id], .gm-style-iw [data-route-id]');
             if (route) {
                 showRoute(itemsById[route.dataset.routeId]);
             }
@@ -1090,7 +1168,7 @@
             $('#walkModal').on('hidden.bs.modal', function () {
                 stopWalk();
                 resetWalkFrames();
-                if (walkMarker) { walkMarker.remove(); }
+                if (mv) { mv.setWalk(null); }
             });
             document.addEventListener('keydown', function (event) {
                 if (!document.getElementById('walkModal').classList.contains('show')) { return; }
@@ -1112,24 +1190,42 @@
         }
         updateFavToggle();
 
-        map.on('load', function () {
-            map.resize();
-            mapReady = true;
-            resetMapView();
-            // リロードしても直前の検索が消えないよう、URLに条件があれば復元して再検索する（ページ単位でサーバー側キャッシュされる）
-            const restored = restoreFromUrl();
-            loadCities(restored ? restored.city : (config.defaultCity || '')).then(function () {
-                if (restored) {
-                    searchRentals(restored.page);
-                } else {
-                    setStatus('条件を選んで「検索」を押してください。');
+        // 地図は非同期で作る（Googleマップのスクリプト読み込みを待つ間も、フォーム操作は有効にしておく）
+        const initMapView = async function () {
+            const container = document.getElementById('rentalMap');
+            let view = null;
+            if (config.googleMapsApiKey) {
+                try {
+                    await loadMapsApi();
+                    view = createGoogleView(container);
+                } catch (e) {
+                    config.googleMapsApiKey = null; // 読み込めなければMapLibre版
                 }
+            }
+            if (!view) {
+                view = createMapLibreView(container);
+            }
+            mv = view;
+            view.onReady(function () {
+                view.resize();
+                mapReady = true;
+                view.reset();
+                // リロードしても直前の検索が消えないよう、URLに条件があれば復元して再検索する（ページ単位でサーバー側キャッシュされる）
+                const restored = restoreFromUrl();
+                loadCities(restored ? restored.city : (config.defaultCity || '')).then(function () {
+                    if (restored) {
+                        searchRentals(restored.page);
+                    } else {
+                        setStatus('条件を選んで「検索」を押してください。');
+                    }
+                });
             });
-        });
+        };
+        initMapView();
 
         window.addEventListener('resize', function () {
-            if (map && mapReady) {
-                map.resize();
+            if (mv && mapReady) {
+                mv.resize();
             }
         });
     });
