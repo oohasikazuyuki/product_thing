@@ -18,6 +18,7 @@ class MlitProxyControllerTest extends TestCase
 
     public function testTransactionsOnlyAllowsGet(): void
     {
+        $this->enableCsrfToken();
         $this->post('/api/mlit/transactions');
         $this->assertResponseCode(405);
     }
@@ -30,6 +31,7 @@ class MlitProxyControllerTest extends TestCase
 
     public function testGeojsonOnlyAllowsGet(): void
     {
+        $this->enableCsrfToken();
         $this->post('/api/mlit/geojson');
         $this->assertResponseCode(405);
     }
