@@ -225,16 +225,69 @@
         }
         return 'https://maps.google.com/maps?layer=c&cbll=' + loc + '&cbp=11,' + pt.heading + ',0,0,0&output=svembed';
     };
+    // 2枚のiframeを重ねて使う：裏で次の地点を読み込み、完了した瞬間に入れ替える（読み込み中の黒い画面を見せない）
+    const walkFrames = [];
+    let walkFront = 0;
+    let walkPlaying = false;
+    const walkBack = { index: -1, ready: false, token: 0, timer: null, onready: null };
+    const WALK_STEP_MS = 1500; // 映像が出てから次の地点へ進むまでの間
+
     const stopWalk = function () {
-        if (walkTimer) { clearInterval(walkTimer); walkTimer = null; }
+        walkPlaying = false;
+        if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
         const play = document.getElementById('walkPlay');
         if (play) { play.textContent = '▶ 自動再生'; play.setAttribute('aria-pressed', 'false'); }
+    };
+    const scheduleNextWalk = function () {
+        if (walkTimer) { clearTimeout(walkTimer); }
+        walkTimer = setTimeout(function () { showWalkPoint(walkIndex + 1); }, WALK_STEP_MS);
+    };
+    const loadInBack = function (i, onready) {
+        const frame = walkFrames[1 - walkFront];
+        const token = ++walkBack.token;
+        walkBack.index = i;
+        walkBack.ready = false;
+        walkBack.onready = onready || null;
+        const done = function () {
+            if (token !== walkBack.token || walkBack.ready) { return; }
+            walkBack.ready = true;
+            clearTimeout(walkBack.timer);
+            if (walkBack.onready) { walkBack.onready(); }
+        };
+        frame.onload = done;
+        clearTimeout(walkBack.timer);
+        walkBack.timer = setTimeout(done, 8000); // 読み込み完了が来ない場合も進める
+        frame.src = walkFrameUrl(walkPoints[i], false);
+    };
+    const swapWalkFrames = function () {
+        const shown = walkFrames[1 - walkFront];
+        shown.style.visibility = 'visible';
+        walkFrames[walkFront].style.visibility = 'hidden';
+        walkFront = 1 - walkFront;
+        walkBack.index = -1;
+        walkBack.onready = null;
+        if (walkIndex < walkPoints.length - 1) {
+            loadInBack(walkIndex + 1); // 次の地点を先読み
+            if (walkPlaying) { scheduleNextWalk(); }
+        } else {
+            stopWalk();
+        }
+    };
+    const resetWalkFrames = function () {
+        walkBack.token += 1;
+        clearTimeout(walkBack.timer);
+        walkBack.index = -1;
+        walkBack.onready = null;
+        walkFrames.forEach(function (frame, n) {
+            frame.onload = null;
+            frame.src = 'about:blank';
+            frame.style.visibility = n === walkFront ? 'visible' : 'hidden';
+        });
     };
     const showWalkPoint = function (i) {
         if (walkPoints.length === 0) { return; }
         walkIndex = Math.max(0, Math.min(walkPoints.length - 1, i));
         const pt = walkPoints[walkIndex];
-        document.getElementById('walkFrame').src = walkFrameUrl(pt, false);
         document.getElementById('walkExternal').href = walkFrameUrl(pt, true);
         document.getElementById('walkInfo').textContent = (walkIndex + 1) + ' / ' + walkPoints.length + ' 地点' +
             (walkIndex === 0 ? '（駅）' : (walkIndex === walkPoints.length - 1 ? '（物件）' : ''));
@@ -246,15 +299,22 @@
             }
             walkMarker.setLngLat([pt.lng, pt.lat]).addTo(map);
         }
-        if (walkIndex === walkPoints.length - 1) { stopWalk(); }
+        if (walkBack.index === walkIndex) {
+            // 先読み済み（または読み込み中）の地点：完了したら入れ替える
+            walkBack.onready = swapWalkFrames;
+            if (walkBack.ready) { swapWalkFrames(); }
+        } else {
+            loadInBack(walkIndex, swapWalkFrames);
+        }
     };
     const toggleWalkPlay = function () {
-        if (walkTimer) { stopWalk(); return; }
+        if (walkPlaying) { stopWalk(); return; }
         if (walkIndex >= walkPoints.length - 1) { showWalkPoint(0); }
+        walkPlaying = true;
         const play = document.getElementById('walkPlay');
         play.textContent = '⏸ 停止';
         play.setAttribute('aria-pressed', 'true');
-        walkTimer = setInterval(function () { showWalkPoint(walkIndex + 1); }, 2500);
+        if (walkBack.index === -1 || walkBack.ready) { scheduleNextWalk(); }
     };
 
     const drawRoute = function (route) {
@@ -719,6 +779,10 @@
         if (walkBtn) {
             walkBtn.addEventListener('click', function () {
                 if (walkPoints.length === 0) { return; }
+                walkFrames.length = 0;
+                walkFrames.push(document.getElementById('walkFrame'), document.getElementById('walkFrameB'));
+                walkFront = 0;
+                resetWalkFrames();
                 $('#walkModal').modal('show');
                 showWalkPoint(0);
             });
@@ -727,7 +791,7 @@
             document.getElementById('walkPlay').addEventListener('click', toggleWalkPlay);
             $('#walkModal').on('hidden.bs.modal', function () {
                 stopWalk();
-                document.getElementById('walkFrame').src = 'about:blank';
+                resetWalkFrames();
                 if (walkMarker) { walkMarker.remove(); }
             });
             document.addEventListener('keydown', function (event) {

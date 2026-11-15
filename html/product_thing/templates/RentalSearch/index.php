@@ -111,7 +111,10 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <button type="button" class="close" data-dismiss="modal" aria-label="閉じる"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body p-0">
-                <iframe id="walkFrame" title="ストリートビュー" style="width:100%;height:65vh;border:0" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+                <div style="position:relative;height:65vh;background:#111">
+                    <iframe id="walkFrame" title="ストリートビュー" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    <iframe id="walkFrameB" title="ストリートビュー（先読み）" style="position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
             </div>
             <div class="modal-footer justify-content-between">
                 <div>
