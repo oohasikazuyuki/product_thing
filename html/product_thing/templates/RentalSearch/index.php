@@ -131,6 +131,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 </div>
                 <span class="small text-muted" id="walkInfo" role="status" aria-live="polite"></span>
             </div>
+            <p id="walkNotice" class="small text-warning-dark px-3 pb-1 mb-0" style="color:#92400e" hidden></p>
             <p class="small text-muted px-3 pb-2 mb-0">地点ごとに表示を切り替えます（←→キーでも進めます）。ストリートビューが無い場所では、表示されないことがあります。</p>
         </div>
     </div>
