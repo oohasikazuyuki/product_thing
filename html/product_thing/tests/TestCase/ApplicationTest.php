@@ -62,7 +62,8 @@ class ApplicationTest extends TestCase
         $app->bootstrap();
         $plugins = $app->getPlugins();
 
-        $this->assertTrue($plugins->has('DebugKit'), 'plugins has DebugKit?');
+        // DebugKit は Application.php で意図的に無効化している
+        $this->assertFalse($plugins->has('DebugKit'), 'DebugKit is disabled');
     }
 
     /**
