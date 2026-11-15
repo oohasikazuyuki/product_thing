@@ -47,7 +47,7 @@ a { color: #166534; }
 .listing-scroll { max-height: 520px; overflow-y: auto; }
 @media (max-width: 991.98px) { .listing-scroll { max-height: none; } }
 .listing-item { display: flex; gap: .75rem; padding: .75rem; margin-bottom: .5rem; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); color: inherit; text-decoration: none; }
-a.listing-item:hover { color: inherit; text-decoration: none; box-shadow: 0 3px 10px rgba(0,0,0,.14); }
+.listing-item:hover { box-shadow: 0 3px 10px rgba(0,0,0,.14); }
 .listing-thumb { width: 96px; height: 72px; flex: none; object-fit: cover; border-radius: 6px; background: #e5e7eb; }
 .listing-thumb.is-empty { display: flex; align-items: center; justify-content: center; font-size: .7rem; color: var(--muted); }
 .listing-body { min-width: 0; }
