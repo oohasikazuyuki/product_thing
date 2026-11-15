@@ -59,3 +59,9 @@ a.listing-item:hover { color: inherit; text-decoration: none; box-shadow: 0 3px 
 .listing-item.is-active { outline: 2px solid var(--brand); }
 .listing-locate { font-size: .8rem; }
 .listing-actions { display: flex; gap: 1rem; }
+/* 間取りなどの複数選択ボタン（チェックボックスをボタン風に表示） */
+.chip-group input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-group label { display: inline-block; margin: 0 .35rem .35rem 0; padding: .25rem .8rem; border: 1px solid #ced4da; border-radius: 999px; background: #fff; cursor: pointer; font-size: .85rem; user-select: none; }
+.chip-group label:hover { border-color: var(--brand); }
+.chip-group input:checked + label { background: var(--brand); border-color: var(--brand); color: #fff; }
+.chip-group input:focus-visible + label { outline: 2px solid #166534; outline-offset: 2px; }

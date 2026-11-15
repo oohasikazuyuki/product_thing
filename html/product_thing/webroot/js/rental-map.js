@@ -241,7 +241,7 @@
             '<strong style="font-size:14px;">' + escapeHtml(item.name) + '</strong><br>' +
             '<span style="color:#3d4f5f;">' + escapeHtml(item.address) + '</span><br>' +
             '<span style="color:#0d6b63;font-weight:700;">' + escapeHtml(item.rent_text || 'N/A') + '</span><br>' +
-            escapeHtml(item.layout || 'N/A') +
+            escapeHtml(item.layout || 'N/A') + (item.area_m2 ? ' · ' + escapeHtml(item.area_m2) + '㎡' : '') +
             (item.station ? ' · ' + escapeHtml(item.station) : '') +
             (item.walk_minutes ? ' 徒歩' + escapeHtml(item.walk_minutes) + '分' : '') +
             (item.station ? '<br><button type="button" class="btn btn-link btn-sm p-0" data-route-id="' + escapeHtml(item.id) + '">駅からの道のりを地図に表示</button>' +
@@ -322,7 +322,8 @@
 
         const total = payload.total || items.length;
         const from = (currentPage - 1) * (payload.per_page || PER_PAGE) + 1;
-        setResultCount(from.toLocaleString() + '–' + (from + items.length - 1).toLocaleString() + ' / ' + Number(total).toLocaleString() + ' 件');
+        setResultCount(from.toLocaleString() + '–' + (from + items.length - 1).toLocaleString() + ' / ' + Number(total).toLocaleString() + ' 件' +
+            (payload.scanned ? '（先頭' + payload.scanned + '件中）' : ''));
         const frag = document.createDocumentFragment();
         items.forEach(function (item) {
             const el = document.createElement(item.detail_url ? 'a' : 'div');
@@ -335,7 +336,9 @@
             el.dataset.id = item.id;
             const tags = [];
             if (item.layout) {
-                tags.push(item.layout);
+                tags.push(item.layout + (item.area_m2 ? ' / ' + item.area_m2 + '㎡' : ''));
+            } else if (item.area_m2) {
+                tags.push(item.area_m2 + '㎡');
             }
             if (item.station) {
                 tags.push(item.station + (item.walk_minutes ? ' 徒歩' + item.walk_minutes + '分' : ''));
@@ -395,11 +398,17 @@
         const formData = new FormData(form);
         const params = new URLSearchParams();
         params.set('page', String(currentPage));
+        const layouts = [];
         formData.forEach(function (value, key) {
-            if (String(value).trim() !== '') {
+            if (key === 'layouts') {
+                layouts.push(String(value));
+            } else if (String(value).trim() !== '') {
                 params.set(key, String(value).trim());
             }
         });
+        if (layouts.length > 0) {
+            params.set('layouts', layouts.join(','));
+        }
 
         setLoading(true);
         setStatus('検索中…');
@@ -485,6 +494,19 @@
 
         document.getElementById('prefecture').addEventListener('change', function () {
             loadCities('');
+        });
+
+        // 下限が上限を超えたら、もう一方の選択を外す
+        [['month_money_room', 'month_money_room_h'], ['area_min', 'area_max']].forEach(function (pair) {
+            pair.forEach(function (id, index) {
+                document.getElementById(id).addEventListener('change', function () {
+                    const min = Number(document.getElementById(pair[0]).value);
+                    const max = Number(document.getElementById(pair[1]).value);
+                    if (min && max && min > max) {
+                        document.getElementById(pair[1 - index]).value = '';
+                    }
+                });
+            });
         });
 
         document.getElementById('rentalPager').addEventListener('click', function (event) {

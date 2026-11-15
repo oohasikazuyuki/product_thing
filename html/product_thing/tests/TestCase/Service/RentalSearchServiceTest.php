@@ -66,4 +66,25 @@ class RentalSearchServiceTest extends TestCase
         $status = $service->providerStatus();
         $this->assertSame('demo', $status['id']);
     }
+
+    public function testLayoutFilterKeepsOnlySelectedLayouts(): void
+    {
+        $all = (new RentalSearchService())->search([]);
+        $layouts = array_values(array_unique(array_column($all['items'], 'layout')));
+        $this->assertGreaterThan(1, count($layouts), 'デモデータに複数の間取りが必要');
+
+        $result = (new RentalSearchService())->search(['layouts' => $layouts[0] . ',' . 'bad layout!']);
+
+        $this->assertNotEmpty($result['items']);
+        foreach ($result['items'] as $item) {
+            $this->assertSame($layouts[0], $item['layout']);
+        }
+        $this->assertSame(count($result['items']), $result['total']);
+    }
+
+    public function testAreaMinGreaterThanMaxIsRejected(): void
+    {
+        $this->expectException(\Cake\Http\Exception\BadRequestException::class);
+        (new RentalSearchService())->search(['area_min' => 50, 'area_max' => 20]);
+    }
 }
