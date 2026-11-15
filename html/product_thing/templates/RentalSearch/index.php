@@ -99,6 +99,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
             <div class="listing-empty">条件を指定して検索してください。</div>
         </div>
         <nav id="rentalPager" class="mt-2" aria-label="ページ送り"></nav>
+        <div id="marketCompare" class="card card-body mt-3 small" hidden aria-live="polite"></div>
     </div>
 </div>
 
@@ -139,6 +140,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     window.RENTAL_MAP_CONFIG = {
         searchEndpoint: <?= json_encode($this->Url->build(['controller' => 'RentalSearch', 'action' => 'search'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         routeEndpoint: <?= json_encode($this->Url->build('/api/rentals/route'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+        transactionsEndpoint: <?= json_encode($this->Url->build('/api/mlit/transactions'), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         citiesEndpoint: <?= json_encode($this->Url->build(['controller' => 'MlitProxy', 'action' => 'cities'], ['fullBase' => false]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         googleMapsApiKey: <?= json_encode($googleMapsApiKey ?? null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
         defaultCity: '13113'

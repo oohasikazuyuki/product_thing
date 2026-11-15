@@ -660,6 +660,54 @@
             '</ul>';
     };
 
+    // ---- 売買相場との比較（同じ市区町村の取引価格 × いま表示中の賃料）----
+    const median = function (values) {
+        const sorted = values.slice().sort(function (a, b) { return a - b; });
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const saleCache = {};
+    // 直近2年のうち、取引データがある年の「中古マンション等」の㎡単価（円）の中央値
+    const fetchSaleSqm = async function (area, city) {
+        const key = area + '/' + city;
+        if (saleCache[key] !== undefined) { return saleCache[key]; }
+        let result = null;
+        const thisYear = new Date().getFullYear();
+        for (const year of [thisYear - 1, thisYear - 2]) {
+            try {
+                const response = await fetch(config.transactionsEndpoint + '?' + new URLSearchParams({ area: area, city: city, year: String(year) }));
+                if (!response.ok) { continue; }
+                const rows = ((await response.json()).data || []).filter(function (r) { return r.Type === '中古マンション等'; });
+                const values = rows.map(function (r) { return Number(r.TradePrice) / Number(r.Area); }).filter(function (v) { return isFinite(v) && v > 0; });
+                if (values.length >= 10) {
+                    result = { sqm: median(values), count: values.length, year: year };
+                    break;
+                }
+            } catch (e) { /* 次の年を試す */ }
+        }
+        saleCache[key] = result;
+        return result;
+    };
+    const renderMarketCompare = async function (payload, area, city) {
+        const box = document.getElementById('marketCompare');
+        if (!box) { return; }
+        box.hidden = true;
+        if (payload.demo || !area || !city || !config.transactionsEndpoint) { return; }
+        const rents = (payload.items || []).filter(function (i) { return i.rent_yen > 0 && i.area_m2 > 0; })
+            .map(function (i) { return i.rent_yen / i.area_m2; });
+        if (rents.length < 3) { return; }
+        const sale = await fetchSaleSqm(area, city);
+        if (!sale) { return; }
+        const rentSqm = median(rents);
+        const yieldPct = rentSqm * 12 / sale.sqm * 100;
+        const cityName = (document.querySelector('#city option:checked') || {}).textContent || '';
+        box.innerHTML = '<strong>売買相場との比較' + (cityName ? '（' + escapeHtml(cityName) + '）' : '') + '</strong>' +
+            '<div class="mt-1">売買 約 ' + Math.round(sale.sqm / 10000).toLocaleString() + ' 万円/㎡ <span class="text-muted">（' + sale.year + '年の中古マンション等 ' + sale.count.toLocaleString() + ' 件の中央値）</span></div>' +
+            '<div>賃貸 約 ' + Math.round(rentSqm).toLocaleString() + ' 円/㎡・月 <span class="text-muted">（表示中 ' + rents.length + ' 件の中央値）</span></div>' +
+            '<div>表面利回りの目安 約 <strong>' + yieldPct.toFixed(1) + '%</strong> <span class="text-muted">（賃料×12 ÷ 売買価格。管理費・空室・諸経費は含まない参考値）</span></div>';
+        box.hidden = false;
+    };
+
     const searchRentals = async function (page) {
         currentPage = page || 1;
         favMode = false;
@@ -693,6 +741,7 @@
                 return;
             }
             lastPayload = payload;
+            renderMarketCompare(payload, params.get('prefecture'), params.get('city'));
             renderMap(payload.items || []);
             renderResults(payload);
             renderPager(payload);
