@@ -150,11 +150,9 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
 <link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet">
 <?php $this->end(); ?>
 <?php $this->start('script'); ?>
-<?php if (!empty($googleMapsApiKey)): ?>
-<script src="https://maps.googleapis.com/maps/api/js?key=<?= urlencode($googleMapsApiKey) ?>&libraries=streetView"></script>
-<?php else: ?>
+<?php // 地図はMapLibre(OSM)を使い、Googleマップ(JS API)は読み込まない（地図表示の課金を避ける）。
+// $googleMapsApiKey はストリートビューの公式埋め込み(Maps Embed API)にだけ使う。 ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
-<?php endif; ?>
 <script>
     document.addEventListener('DOMContentLoaded', (event) => {
         const defaultCenter = [139.7671, 35.6812];

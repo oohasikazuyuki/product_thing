@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const status = document.getElementById('status');
 
     const view = await MapView.create(document.getElementById('map'), {
-        googleKey: <?= json_encode($googleMapsApiKey ?? null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+        googleKey: null, // 防災・規制調査はGoogleマップにする必要がないため、MapLibre（OSM）を使う
         center: [139.7671, 35.6812],
         zoom: 11
     });
