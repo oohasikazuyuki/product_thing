@@ -10,6 +10,8 @@
     let currentPage = 1;
     let plottedCount = 0;
     let itemsById = {};
+    let lastPayload = null;
+    let favMode = false;
     let stationMarker = null;
     const PER_PAGE = 20;
     let mapReady = false;
@@ -309,6 +311,62 @@
         }
     };
 
+    // お気に入り：このブラウザ(localStorage)に物件ごと保存する。使えない環境では保存せず動作は続ける
+    const FAV_KEY = 'rental.favorites';
+    const loadFavs = function () {
+        try {
+            const data = JSON.parse(localStorage.getItem(FAV_KEY) || '{}');
+            return data && typeof data === 'object' ? data : {};
+        } catch (e) {
+            return {};
+        }
+    };
+    let favs = loadFavs();
+    const saveFavs = function () {
+        try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) { /* 保存できなくても閲覧は続行 */ }
+    };
+    const favButton = function (item) {
+        const on = !!favs[item.id];
+        return '<button type="button" class="btn btn-link btn-sm p-0 listing-locate fav-btn" data-fav-id="' + escapeHtml(item.id) +
+            '" aria-pressed="' + on + '">' + (on ? '★ 保存済み' : '☆ お気に入り') + '</button>';
+    };
+    const updateFavToggle = function () {
+        const toggle = document.getElementById('favToggle');
+        if (toggle) {
+            toggle.textContent = '★ お気に入り (' + Object.keys(favs).length + ')';
+            toggle.setAttribute('aria-pressed', String(favMode));
+            toggle.classList.toggle('active', favMode);
+        }
+    };
+    const showFavorites = function () {
+        const items = Object.keys(favs).map(function (id) { return favs[id]; });
+        const payload = { items: items, total: items.length, per_page: Math.max(items.length, 1) };
+        renderMap(items);
+        renderResults(payload);
+        renderPager({ total: 0 });
+        if (items.length === 0) {
+            document.getElementById('rentalResults').innerHTML = '<div class="listing-empty">お気に入りはまだありません。物件の「☆ お気に入り」で保存できます。</div>';
+        }
+        setStatus('お気に入り · このブラウザに保存した物件です');
+    };
+    const setFavMode = function (on) {
+        favMode = on;
+        updateFavToggle();
+        if (on) {
+            showFavorites();
+        } else if (lastPayload) {
+            renderMap(lastPayload.items || []);
+            renderResults(lastPayload);
+            renderPager(lastPayload);
+            setStatus('検索結果に戻りました。');
+        } else {
+            document.getElementById('rentalResults').innerHTML = '<div class="listing-empty">条件を指定して検索してください。</div>';
+            renderMap([]);
+            setResultCount('—');
+            setStatus('条件を選んで「検索」を押してください。');
+        }
+    };
+
     const thumbHtml = function (item) {
         if (item.photo_url) {
             return '<img class="listing-thumb" src="' + escapeHtml(item.photo_url) + '" alt="" loading="lazy">';
@@ -363,6 +421,7 @@
                     }).join('') + '</div>'
                     : '') +
                 '<div class="listing-actions">' +
+                favButton(item) +
                 detailLink(item, 'btn btn-link btn-sm p-0 listing-locate') +
                 (markersById[item.id]
                     ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
@@ -398,6 +457,8 @@
 
     const searchRentals = async function (page) {
         currentPage = page || 1;
+        favMode = false;
+        updateFavToggle();
         const form = document.getElementById('rentalSearchForm');
         const formData = new FormData(form);
         const params = new URLSearchParams();
@@ -426,6 +487,7 @@
                 setResultCount('—');
                 return;
             }
+            lastPayload = payload;
             renderMap(payload.items || []);
             renderResults(payload);
             renderPager(payload);
@@ -537,6 +599,26 @@
                 showRoute(itemsById[route.dataset.routeId]);
                 return;
             }
+            const fav = event.target.closest('[data-fav-id]');
+            if (fav) {
+                event.preventDefault();
+                const id = fav.dataset.favId;
+                if (favs[id]) {
+                    delete favs[id];
+                } else if (itemsById[id]) {
+                    favs[id] = itemsById[id];
+                }
+                saveFavs();
+                if (favMode) {
+                    showFavorites();
+                } else {
+                    const on = !!favs[id];
+                    fav.textContent = on ? '★ 保存済み' : '☆ お気に入り';
+                    fav.setAttribute('aria-pressed', String(on));
+                }
+                updateFavToggle();
+                return;
+            }
             const locate = event.target.closest('[data-locate]');
             if (locate) {
                 event.preventDefault();
@@ -544,6 +626,12 @@
                 activateItem(locate.dataset.locate, true);
             }
         });
+
+        const favToggle = document.getElementById('favToggle');
+        if (favToggle) {
+            favToggle.addEventListener('click', function () { setFavMode(!favMode); });
+        }
+        updateFavToggle();
 
         map.on('load', function () {
             map.resize();

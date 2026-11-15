@@ -89,7 +89,10 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     <div class="col-lg-5 mb-3">
         <div class="d-flex justify-content-between align-items-baseline mb-2">
             <h2 class="h6 mb-0">物件一覧</h2>
-            <span id="resultCount" class="small text-muted" role="status">—</span>
+            <span class="d-flex align-items-baseline">
+                <span id="resultCount" class="small text-muted mr-2" role="status">—</span>
+                <button type="button" id="favToggle" class="btn btn-outline-secondary btn-sm" aria-pressed="false">★ お気に入り (0)</button>
+            </span>
         </div>
         <div id="rentalResults" class="listing-scroll">
             <div class="listing-empty">条件を指定して検索してください。</div>
