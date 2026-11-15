@@ -10,11 +10,10 @@ $this->assign('containerClass', 'container-fluid px-md-4');
 ?>
 <div class="page-header">
     <h1>賃貸物件を地図で探す</h1>
-    <p>エリアと賃料を指定すると、地図と一覧で賃貸物件を確認できます。</p>
     <div class="mt-2">
         <?php $quotaLow = !$isDemo && !empty($quota) && $quota['remaining'] <= 30; ?>
         <span id="providerChip" class="badge badge-<?= $isDemo ? 'warning' : (!empty($quota) && $quota['remaining'] <= 0 ? 'danger' : ($quotaLow ? 'warning' : 'success')) ?> p-2">
-            <?= $isDemo ? 'デモモード' : 'ライブ接続' ?> · <?= h($provider['label']) ?><?= (!$isDemo && !empty($quota)) ? ' · 今月の無料枠 残り ' . (int)$quota['remaining'] . ' / ' . (int)$quota['limit'] . ' 回' : '' ?>
+            <?= $isDemo ? 'デモモード' : 'ライブ' ?><?= (!$isDemo && !empty($quota)) ? ' · 無料枠 残り ' . (int)$quota['remaining'] . ' / ' . (int)$quota['limit'] . ' 回' : '' ?>
         </span>
         <?php if ($isDemo): ?>
             <small class="text-muted ml-2">実際の物件を取得するには、環境変数 <code>RAPIDAPI_KEY</code>（RapidAPI の SUUMO API）または <code>HOMES_API_BEARER</code> を設定してください。</small>
@@ -65,7 +64,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     </div>
     <?php $layoutOptions = ['ワンルーム', '1K', '1DK', '1LDK', '2K', '2DK', '2LDK', '3K', '3DK', '3LDK']; ?>
     <fieldset class="mb-0">
-        <legend class="small mb-1 col-form-label p-0">間取り（複数選択可・未選択ならすべて）</legend>
+        <legend class="small mb-1 col-form-label p-0">間取り（複数可）</legend>
         <div class="chip-group" id="layoutChips">
             <?php foreach ($layoutOptions as $i => $layout): ?>
                 <input type="checkbox" id="layout-<?= (int)$i ?>" name="layouts" value="<?= h($layout) ?>">
@@ -111,7 +110,6 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <option value="10">10分以内</option>
                 <option value="15">15分以内</option>
             </select>
-            <span class="text-muted ml-2">（表示中のページが対象）</span>
         </div>
         <div id="layoutNote" class="small text-muted mb-2" hidden></div>
         <div id="rentalResults" class="listing-scroll">
@@ -151,7 +149,6 @@ $this->assign('containerClass', 'container-fluid px-md-4');
                 <span class="small text-muted" id="walkInfo" role="status" aria-live="polite"></span>
             </div>
             <p id="walkNotice" class="small text-warning-dark px-3 pb-1 mb-0" style="color:#92400e" hidden></p>
-            <p class="small text-muted px-3 pb-2 mb-0">地点ごとに表示を切り替えます（←→キーでも進めます）。ストリートビューが無い場所では、表示されないことがあります。</p>
         </div>
     </div>
 </div>

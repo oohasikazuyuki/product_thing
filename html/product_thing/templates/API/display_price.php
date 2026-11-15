@@ -45,7 +45,7 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
                 <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
             </div>
             <button type="button" id="streetViewBtn" class="btn btn-sm btn-outline-secondary mb-1" aria-pressed="false">ストリートビュー（地図をクリック）</button>
-            <small class="text-muted ml-2 mb-1">表の行をクリックすると、その場所を航空写真で拡大します</small>
+            <small class="text-muted ml-2 mb-1">行クリックで航空写真に拡大</small>
         </div>
         <div id="map" class="map-canvas" aria-label="不動産データの地図"></div>
         <div class="d-flex flex-wrap align-items-center small text-muted mt-2" aria-label="取引価格の色の凡例">
@@ -56,7 +56,7 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
             <span class="mr-3"><span class="legend-dot" style="background:#b91c1c"></span>1億円以上</span>
             <span><span class="legend-dot" style="background:#2563eb"></span>価格不明</span>
         </div>
-        <div id="mapStatus" class="alert alert-secondary mt-2 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>取引データを取得しています（数秒かかります）…</div>
+        <div id="mapStatus" class="alert alert-secondary mt-2 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
     </div>
 </div>
 
@@ -766,7 +766,7 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
             setBasemap('aerial');
             mapAdapter.focus(coordinates, popupHtml);
             document.getElementById('map').scrollIntoView({behavior: 'smooth', block: 'center'});
-            setMapStatus('選択した取引の場所を表示中です。取引価格情報は町丁目単位のため、位置は地区の代表点付近です。', 'info');
+            setMapStatus('位置は町丁目の代表点付近です。', 'info');
         };
         // ---- 表（絞り込み・並べ替え・ページ送り）と地図を同じデータで動かす ----
         const PAGE_SIZE = 30;
@@ -962,9 +962,9 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
             } else if (coordinatesList.length === 0) {
                 setMapStatus('位置情報を取得できた取引がありません。', 'warning');
             } else {
-                setMapStatus(modeName[currentMode] + 'モードで ' + coordinatesList.length.toLocaleString() + ' 件を表示中です。' +
-                    (capped ? ' 件数が多いため先頭' + MAX_MARKERS.toLocaleString() + '件までです。絞り込んでください。' : '') +
-                    (missing > 0 ? ' 位置未取得の ' + missing.toLocaleString() + ' 件は地図に出ません（ページを開き直すと順次取得します）。' : ''), 'success');
+                setMapStatus(coordinatesList.length.toLocaleString() + ' 件を表示中' +
+                    (capped ? '（多いため先頭' + MAX_MARKERS.toLocaleString() + '件まで。絞り込んでください）' : '') +
+                    (missing > 0 ? ' ・ 位置未取得 ' + missing.toLocaleString() + ' 件は地図に出ません' : ''), 'success');
             }
         };
 

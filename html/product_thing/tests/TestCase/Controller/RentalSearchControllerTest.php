@@ -50,7 +50,7 @@ class RentalSearchControllerTest extends TestCase
             $this->get('/rentals');
             $this->assertResponseOk();
             if (env('RAPIDAPI_KEY')) {
-                $this->assertResponseContains('今月の無料枠 残り 0 / 300 回');
+                $this->assertResponseContains('無料枠 残り 0 / 300 回');
                 $this->assertResponseContains('badge-danger');
             }
         } finally {

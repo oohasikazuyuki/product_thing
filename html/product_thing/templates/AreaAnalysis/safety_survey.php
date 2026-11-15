@@ -4,7 +4,7 @@
 <?php $this->end(); ?>
     <div class="page-header">
         <h1>防災・規制調査</h1>
-        <p>取引価格に加えて、都市計画・用途地域・立地適正化計画を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
+        <p><span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
     </div>
     <div class="mb-3">
         <?= $this->Html->link('取引価格の結果へ', ['controller' => 'PriceSearch', 'action' => 'displayPrice', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
@@ -12,7 +12,7 @@
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div id="map" class="map-canvas"></div>
-    <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です（十数秒かかることがあります）…</div>
+    <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <?= $this->Html->script('map-view.js?v=' . filemtime(WWW_ROOT . 'js' . DS . 'map-view.js')) ?>

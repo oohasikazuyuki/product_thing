@@ -7,7 +7,7 @@
 <?php $this->end(); ?>
     <div class="page-header">
         <h1>学校・生活調査</h1>
-        <p>取引価格に加えて、学校区・学校・保育園・医療/福祉施設を重ねて確認できます。 <span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
+        <p><span class="small">出典：不動産情報ライブラリ（国土交通省）</span></p>
     </div>
     <div class="mb-3">
         <?= $this->Html->link('取引価格の結果へ', ['controller' => 'PriceSearch', 'action' => 'displayPrice', '?' => ['area' => $area, 'city' => $city, 'year' => $year]], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
@@ -17,7 +17,7 @@
     <div class="row">
         <div class="col-lg-8">
             <div id="map" class="map-canvas"></div>
-            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>データを読み込み中です（十数秒かかることがあります）…</div>
+            <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
         </div>
         <div class="col-lg-4">
             <div class="card mb-3">
@@ -291,8 +291,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     : '一部データの取得に失敗しました: ' + warnings.join(' / ');
                 status.title = warnings.join(' / ');
             } else {
-                status.className = 'alert alert-success mt-3 mb-0';
-                status.textContent = '調査データの読み込みが完了しました。右側パネルで件数確認・レイヤー切替ができます。';
+                status.hidden = true; // 件数は右の「調査サマリー」に出ているため、完了メッセージは出さない
             }
         } catch (e) {
             status.className = 'alert alert-danger mt-3 mb-0';

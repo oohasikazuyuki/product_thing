@@ -1,7 +1,7 @@
 <?php $this->assign('title', 'API Explorer'); ?>
 <div class="page-header">
     <h1>API Explorer</h1>
-    <p>デベロッパー向けに、API IDを選んで実行URL・cURL・JSONレスポンスを確認できます。</p>
+    <p>API IDを選んで、実行URL・cURL・JSONを確認できます。</p>
 </div>
 <div>
 
