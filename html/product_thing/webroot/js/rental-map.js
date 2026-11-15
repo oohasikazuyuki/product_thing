@@ -431,6 +431,43 @@
     };
 
     // 駅から物件までの徒歩ルートを地図に表示（取得できない場合はGoogleマップを開く）
+    // Googleの徒歩ルート（Routes API、だめなら Directions API）。使えない・失敗したら null を返し、呼び出し側は無料ルートのまま進める
+    const googleWalkRoute = async function (origin, dest) {
+        if (!config.googleMapsApiKey) { return null; }
+        const num = function (v) { return typeof v === 'function' ? v() : v; };
+        try {
+            await loadMapsApi();
+            try {
+                const lib = await google.maps.importLibrary('routes');
+                if (lib.Route && lib.Route.computeRoutes) {
+                    const result = await lib.Route.computeRoutes({
+                        origin: origin, destination: dest, travelMode: 'WALKING',
+                        fields: ['path', 'distanceMeters', 'durationMillis']
+                    });
+                    const r = result.routes && result.routes[0];
+                    if (r && r.path && r.path.length > 1) {
+                        return {
+                            line: r.path.map(function (p) { return [num(p.lng), num(p.lat)]; }),
+                            distance_m: Math.round(r.distanceMeters),
+                            minutes: Math.max(1, Math.round(r.durationMillis / 60000))
+                        };
+                    }
+                }
+            } catch (e) { /* Routes API が使えなければ Directions API を試す */ }
+            const response = await new google.maps.DirectionsService().route({
+                origin: origin, destination: dest, travelMode: google.maps.TravelMode.WALKING
+            });
+            const leg = response.routes[0].legs[0];
+            const line = [];
+            leg.steps.forEach(function (step) {
+                step.path.forEach(function (p) { line.push([p.lng(), p.lat()]); });
+            });
+            return line.length > 1 ? { line: line, distance_m: leg.distance.value, minutes: Math.max(1, Math.round(leg.duration.value / 60)) } : null;
+        } catch (e) {
+            return null;
+        }
+    };
+
     const showRoute = async function (item) {
         if (!item || !item.station) {
             return;
@@ -451,6 +488,14 @@
                 setStatusWithLink(route.message || '駅からの道のりを取得できませんでした。', routeUrl(item));
                 return;
             }
+            let source = '地図データ(OSM)による目安';
+            const google_ = await googleWalkRoute({ lat: route.station.lat, lng: route.station.lng }, { lat: lat, lng: lng });
+            if (google_) {
+                route.line = google_.line;
+                route.distance_m = google_.distance_m;
+                route.minutes = google_.minutes;
+                source = 'Googleの徒歩ルート';
+            }
             drawRoute(route);
             setWalkRoute(route);
             // 掲載の徒歩時間と3分以上ずれるときは、位置や経路が不正確な可能性を伝える
@@ -458,7 +503,7 @@
                 ? '⚠ 掲載（徒歩' + item.walk_minutes + '分）と差が大きいため、物件の位置や経路が実際と異なる可能性があります。参考程度にご覧ください。'
                 : '';
             setStatus(route.station.name + 'から約 ' + route.distance_m.toLocaleString() + ' m（徒歩 約' + route.minutes + '分）' +
-                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路は地図データによる目安です' + (walkNotice ? ' ' + walkNotice : ''));
+                (item.walk_minutes ? ' ／ 掲載情報: 徒歩' + item.walk_minutes + '分' : '') + ' ・ 経路: ' + source + (walkNotice ? ' ' + walkNotice : ''));
         } catch (error) {
             setStatus('駅からの道のりの取得中にエラーが発生しました。');
         }
