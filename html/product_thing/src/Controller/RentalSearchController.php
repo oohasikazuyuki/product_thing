@@ -13,7 +13,8 @@ class RentalSearchController extends AppController
         $provider = (new RentalSearchService())->providerStatus();
         $prefectures = \App\Service\Prefectures::all();
         $googleMapsApiKey = env('GOOGLE_MAPS_API_KEY') ?: null;
-        $this->set(compact('provider', 'prefectures', 'googleMapsApiKey'));
+        $quota = \Cake\Cache\Cache::read('rapidapi_quota', 'geocode') ?: null; // 直近の検索で記録した無料枠の残り
+        $this->set(compact('provider', 'prefectures', 'googleMapsApiKey', 'quota'));
     }
 
     public function search()
