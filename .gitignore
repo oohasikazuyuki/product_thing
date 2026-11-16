@@ -31,3 +31,6 @@ ehthumbs.db
 *.log
 *.pid
 *.tmp
+
+# Claude Code の作業フォルダ（worktree）
+/.claude/worktrees/
