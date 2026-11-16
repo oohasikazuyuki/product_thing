@@ -249,8 +249,11 @@ class RentalSearchService
             'items' => array_slice($matches, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
             'demo' => false,
             'scanned' => $scanned,
-            'message' => null
-                . ($matches === [] ? ' 該当がなければ、賃料や面積の範囲を広げてください。' : ''),
+            'message' => $matches !== [] ? null : (
+                ($result['total'] ?? 0) > $scanned
+                    ? sprintf('条件に合う%d件のうち、先頭%d件には指定の間取りがありませんでした。間取りでは絞り込めないため、広さ（㎡）や賃料を絞ると見つかる場合があります。', $result['total'], $scanned)
+                    : '該当する物件がありませんでした。賃料や面積の範囲を広げてください。'
+            ),
         ];
     }
 
