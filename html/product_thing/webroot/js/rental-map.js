@@ -166,6 +166,7 @@
     const clearRoute = function () {
         walkPoints = [];
         walkNotice = '';
+        let walkOpener = null;
         const walkBtn = document.getElementById('walkBtn');
         if (walkBtn) { walkBtn.hidden = true; }
         if (mv && mapReady) {
@@ -901,7 +902,9 @@
                     const min = Number(document.getElementById(pair[0]).value);
                     const max = Number(document.getElementById(pair[1]).value);
                     if (min && max && min > max) {
-                        document.getElementById(pair[1 - index]).value = '';
+                        const other = document.getElementById(pair[1 - index]);
+                        other.value = '';
+                        setStatus('下限が上限を超えたため、' + other.getAttribute('aria-label') + 'を「なし」に戻しました。');
                     }
                 });
             });
@@ -964,6 +967,7 @@
         if (walkBtn) {
             walkBtn.addEventListener('click', async function () {
                 if (walkPoints.length === 0) { return; }
+                walkOpener = document.activeElement;
                 walkFrames.length = 0;
                 walkFrames.push(document.getElementById('walkFrame'), document.getElementById('walkFrameB'));
                 walkFront = 0;
@@ -993,6 +997,7 @@
                 if (walkPano) { google.maps.event.trigger(walkPano, 'resize'); }
             });
             $('#walkModal').on('hidden.bs.modal', function () {
+                if (walkOpener && walkOpener.focus) { walkOpener.focus(); } // 閉じたあと、開いたボタンへフォーカスを戻す
                 stopWalk();
                 resetWalkFrames();
                 if (mv) { mv.setWalk(null); }

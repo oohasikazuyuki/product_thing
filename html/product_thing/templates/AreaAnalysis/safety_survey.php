@@ -13,6 +13,10 @@
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div id="map" class="map-canvas" role="region" aria-label="防災・規制の地図"></div>
     <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
+    <details class="mt-3" id="safetyListWrap" hidden>
+        <summary>地図と同じ内容を一覧で見る（地図を使わない場合はこちら）</summary>
+        <ul id="safetyList" class="small mt-2 mb-0 pl-3"></ul>
+    </details>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 <?= $this->Html->script('map-view.js?v=' . filemtime(WWW_ROOT . 'js' . DS . 'map-view.js')) ?>
@@ -46,6 +50,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
+    const LIST_MAX = 100; // 一覧は先頭100件まで（地図には全件を出す）
+    const safetyList = document.getElementById('safetyList');
     const addFeatures = (features, color, label) => {
         let count = 0;
         features.forEach((f) => {
@@ -53,6 +59,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (!c) return;
             const p = f.properties || {};
             view.addMarker(c, color, '<div style="max-width:240px"><strong>' + escapeHtml(label) + '</strong><br>' + Object.keys(p).slice(0, 4).map((k) => escapeHtml(k) + ': ' + escapeHtml(p[k])).join('<br>') + '</div>');
+            if (safetyList.children.length < LIST_MAX) {
+                const li = document.createElement('li');
+                li.textContent = label + '：' + Object.keys(p).slice(0, 4).map((k) => k + ' ' + p[k]).join(' / ');
+                safetyList.appendChild(li);
+                document.getElementById('safetyListWrap').hidden = false;
+            }
             count += 1;
         });
         return count;
