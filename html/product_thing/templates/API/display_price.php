@@ -24,10 +24,10 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
             <div class="card-body p-3">
                 <h2 class="h6">分析モード</h2>
                 <div class="btn-group-vertical btn-group-sm w-100" role="group" aria-label="分析モード">
-                    <button type="button" class="btn btn-outline-secondary mode-btn is-active" data-mode="living">お買い物・生活</button>
-                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="safety">安心・防災</button>
-                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="invest">プロ・投資</button>
-                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="nature">自然環境</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn is-active" data-mode="living" aria-pressed="true">お買い物・生活</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="safety" aria-pressed="false">安心・防災</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="invest" aria-pressed="false">プロ・投資</button>
+                    <button type="button" class="btn btn-outline-secondary mode-btn" data-mode="nature" aria-pressed="false">自然環境</button>
                 </div>
             </div>
         </div>
@@ -41,13 +41,13 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
     <div class="col-lg-9 mb-3">
         <div class="d-flex flex-wrap align-items-center mb-2 map-toolbar">
             <div class="btn-group btn-group-sm mr-2 mb-1" role="group" aria-label="地図の種類">
-                <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
-                <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
+                <button type="button" class="btn btn-outline-secondary active" data-basemap="map" aria-pressed="true">地図</button>
+                <button type="button" class="btn btn-outline-secondary" data-basemap="aerial" aria-pressed="false">航空写真</button>
             </div>
             <button type="button" id="streetViewBtn" class="btn btn-sm btn-outline-secondary mb-1" aria-pressed="false">ストリートビュー（地図をクリック）</button>
             <small class="text-muted ml-2 mb-1">行クリックで航空写真に拡大</small>
         </div>
-        <div id="map" class="map-canvas" aria-label="不動産データの地図"></div>
+        <div id="map" class="map-canvas" role="region" aria-label="不動産データの地図（取引は下の表と同じ内容です）"></div>
         <div class="d-flex flex-wrap align-items-center small text-muted mt-2" aria-label="取引価格の色の凡例">
             <span class="mr-3">取引価格:</span>
             <span class="mr-3"><span class="legend-dot" style="background:#16a34a"></span>3,000万円未満</span>
@@ -210,6 +210,7 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
         const syncModeButtons = function () {
             modeButtons.forEach(function (button) {
                 button.classList.toggle('is-active', button.dataset.mode === currentMode);
+                button.setAttribute('aria-pressed', String(button.dataset.mode === currentMode));
             });
         };
 
@@ -711,6 +712,7 @@ $summary = trim(($first['Prefecture'] ?? '') . ' ' . ($first['Municipality'] ?? 
             mapAdapter.setAerial(name === 'aerial');
             basemapButtons.forEach(function (button) {
                 button.classList.toggle('active', button.dataset.basemap === name);
+                button.setAttribute('aria-pressed', String(button.dataset.basemap === name));
             });
         };
         basemapButtons.forEach(function (button) {

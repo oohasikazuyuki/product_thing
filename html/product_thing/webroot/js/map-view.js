@@ -24,6 +24,9 @@
         return apiPromise;
     };
 
+    // OSの「視差効果を減らす」設定のとき、地図の移動アニメーションを使わない
+    const reduceMotion = function () { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
+
     // ---- MapLibre（OSM / 国土地理院の航空写真）----
     const createLibre = function (container, o) {
         const map = new maplibregl.Map({
@@ -51,11 +54,11 @@
             reset: function () { map.jumpTo({ center: o.center, zoom: o.zoom }); },
             getCenter: function () { const c = map.getCenter(); return [c.lng, c.lat]; },
             getZoom: function () { return map.getZoom(); },
-            flyTo: function (c, z) { map.flyTo({ center: c, zoom: z, essential: true }); },
+            flyTo: function (c, z) { map.flyTo({ center: c, zoom: z, essential: !reduceMotion() }); },
             fit: function (coords, f) {
                 const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
                 coords.forEach(function (c) { bounds.extend(c); });
-                map.fitBounds(bounds, { padding: f.padding || 0, maxZoom: f.maxZoom, minZoom: f.minZoom, essential: true });
+                map.fitBounds(bounds, { padding: f.padding || 0, maxZoom: f.maxZoom, minZoom: f.minZoom, essential: !reduceMotion() });
             },
             addMarker: function (c, color, html, onClick) {
                 const marker = new maplibregl.Marker({ color: color }).setLngLat(c)
