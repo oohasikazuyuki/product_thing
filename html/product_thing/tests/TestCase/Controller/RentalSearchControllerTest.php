@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Test\TestCase\Controller;
 
+use App\Controller\RentalSearchController;
 use Cake\Cache\Cache;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
@@ -55,6 +56,23 @@ class RentalSearchControllerTest extends TestCase
             }
         } finally {
             $old ? Cache::write('rapidapi_quota', $old, 'geocode') : Cache::delete('rapidapi_quota', 'geocode');
+        }
+    }
+
+    /** 上限まで事前に数えておき、次の1回が429になること（RapidAPIには到達しない） */
+    public function testSearchAndRouteReturn429WhenOverLimit(): void
+    {
+        foreach (['search' => '/api/rentals/search?prefecture=13', 'route' => '/api/rentals/route'] as $name => $url) {
+            $key = 'ratelimit_' . $name . '_' . md5('203.0.113.9');
+            Cache::write($key, ['start' => time(), 'count' => RentalSearchController::RATE_LIMITS[$name]], 'geocode');
+            $this->configRequest(['environment' => ['REMOTE_ADDR' => '203.0.113.9']]);
+            try {
+                $this->get($url);
+                $this->assertResponseCode(429);
+                $this->assertResponseContains('アクセスが多すぎます');
+            } finally {
+                Cache::delete($key, 'geocode');
+            }
         }
     }
 }
