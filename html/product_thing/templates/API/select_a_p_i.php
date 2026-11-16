@@ -62,13 +62,13 @@
         <h2 class="h6 text-muted mb-3">そのほかの調査</h2>
         <div class="row">
             <div class="col-md-4 mb-3">
-                <?= $this->Html->link('<h2>防災・規制調査</h2><p>都市計画・用途地域・災害リスク</p>', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+                <?= $this->Html->link('<h3>防災・規制調査</h3><p>都市計画・用途地域・災害リスク</p>', ['controller' => 'AreaAnalysis', 'action' => 'safetySurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
             <div class="col-md-4 mb-3">
-                <?= $this->Html->link('<h2>学校・生活調査</h2><p>学校区・保育園・医療施設など</p>', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
+                <?= $this->Html->link('<h3>学校・生活調査</h3><p>学校区・保育園・医療施設など</p>', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
             <div class="col-md-4 mb-3">
-                <?= $this->Html->link('<h2>賃貸検索</h2><p>エリアと賃料から物件を探す</p>', ['controller' => 'RentalSearch', 'action' => 'index'], ['class' => 'card feature-card', 'escape' => false]) ?>
+                <?= $this->Html->link('<h3>賃貸検索</h3><p>エリアと賃料から物件を探す</p>', ['controller' => 'RentalSearch', 'action' => 'index'], ['class' => 'card feature-card', 'escape' => false]) ?>
             </div>
         </div>
     </div>

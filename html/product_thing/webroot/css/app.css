@@ -1,14 +1,14 @@
 /* 全画面共通スタイル */
-:root { --brand: #14532d; --brand-soft: #e8f3ec; --ink: #1f2937; --muted: #6b7280; }
+:root { --brand: #14532d; --brand-soft: #e8f3ec; --ink: #1f2937; --muted: #4b5563; }
 body { background: #f4f6f5; color: var(--ink); font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif; line-height: 1.65; }
 a { color: #166534; }
 .navbar-app { background: var(--brand); }
-.navbar-app .nav-link { padding: .5rem .9rem; border-radius: 6px; }
+.navbar-app .nav-link { padding: .5rem .9rem; border-radius: 6px; color: rgba(255,255,255,.85); }
 .navbar-app .nav-item.active .nav-link { background: rgba(255,255,255,.16); font-weight: 600; }
 .card { border: 0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .btn-success { background: var(--brand); border-color: var(--brand); }
 .btn-success:hover, .btn-success:focus { background: #0f3f22; border-color: #0f3f22; }
-.btn:focus, .form-control:focus, .page-link:focus { box-shadow: 0 0 0 .2rem rgba(22,101,52,.25); }
+.btn:focus, .form-control:focus, .page-link:focus { box-shadow: 0 0 0 .2rem rgba(22,101,52,.6); }
 .form-control { height: calc(1.5em + 1rem); }
 .table th, .table td { vertical-align: middle; }
 .table thead th { background-color: #1f2937; color: #fff; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
@@ -22,7 +22,7 @@ a { color: #166534; }
 .hero p { color: var(--muted); max-width: 40rem; margin: .5rem auto 0; }
 .feature-card { display: block; height: 100%; padding: 1.1rem 1.2rem; color: inherit; text-decoration: none; transition: transform .15s, box-shadow .15s; }
 .feature-card:hover { color: inherit; text-decoration: none; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
-.feature-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: .25rem; }
+.feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: .25rem; }
 .feature-card p { font-size: .875rem; color: var(--muted); margin: 0; }
 .map-canvas { width: 100%; height: 520px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 @media (max-width: 575.98px) { .map-canvas { height: 360px; } .hero h1 { font-size: 1.5rem; } }
@@ -40,7 +40,8 @@ a { color: #166534; }
 .form-control:disabled { background: #eef0ef; cursor: not-allowed; }
 @media (max-width: 575.98px) { .table-card { max-height: 60vh; } .page-header h1 { font-size: 1.3rem; } .navbar-brand { font-size: 1rem; } }
 .sort-btn { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; white-space: nowrap; }
-.sort-btn:hover, .sort-btn:focus { text-decoration: underline; outline: none; }
+.sort-btn:hover, .sort-btn:focus { text-decoration: underline; }
+.sort-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .sort-icon { display: inline-block; min-width: 1em; font-size: .7em; }
 .table-active { background-color: #d9ecdf !important; }
 /* 賃貸検索 */
@@ -63,7 +64,7 @@ a { color: #166534; }
 .listing-actions > * { white-space: nowrap; }
 /* 間取りなどの複数選択ボタン（チェックボックスをボタン風に表示） */
 .chip-group input { position: absolute; opacity: 0; pointer-events: none; }
-.chip-group label { display: inline-block; margin: 0 .35rem .35rem 0; padding: .25rem .8rem; border: 1px solid #ced4da; border-radius: 999px; background: #fff; cursor: pointer; font-size: .85rem; user-select: none; }
+.chip-group label { display: inline-block; margin: 0 .35rem .35rem 0; padding: .25rem .8rem; border: 1px solid #6b7280; border-radius: 999px; background: #fff; cursor: pointer; font-size: .85rem; user-select: none; }
 .chip-group label:hover { border-color: var(--brand); }
 .chip-group input:checked + label { background: var(--brand); border-color: var(--brand); color: #fff; }
 .chip-group input:focus-visible + label { outline: 2px solid #166534; outline-offset: 2px; }
@@ -73,3 +74,14 @@ a { color: #166534; }
     .btn-group[aria-label="この条件で他の調査へ"] { display: flex; flex-wrap: wrap; gap: .25rem; width: 100%; }
     .btn-group[aria-label="この条件で他の調査へ"] > .btn { flex: 1 1 auto; white-space: nowrap; border-radius: .2rem; margin-left: 0; }
 }
+
+/* コントラスト（WCAG AA 4.5:1）：Bootstrap既定の青・緑・灰を、アプリの色に合わせて上書きする */
+.text-muted { color: var(--muted) !important; }
+.btn-link { color: #166534; }
+.btn-primary { background: var(--brand); border-color: var(--brand); }
+.btn-primary:hover, .btn-primary:focus { background: #0f3d21; border-color: #0f3d21; }
+.btn-outline-success { color: #166534; border-color: #166534; }
+.btn-outline-success:hover { background: var(--brand); border-color: var(--brand); color: #fff; }
+.badge-success { background: var(--brand); }
+main:focus { outline: none; }
+#rentalResults:focus { outline: none; }

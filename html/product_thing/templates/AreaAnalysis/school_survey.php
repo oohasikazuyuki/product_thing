@@ -16,7 +16,7 @@
     <?= $this->element('analysis_filter', ['targetAction' => 'schoolSurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
     <div class="row">
         <div class="col-lg-8">
-            <div id="map" class="map-canvas"></div>
+            <div id="map" class="map-canvas" role="region" aria-label="学校・生活施設の地図（施設は右の一覧と同じ内容です）"></div>
             <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
         </div>
         <div class="col-lg-4">
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const links = [
             '<a href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener">Googleマップ</a>',
             d.name ? '<a href="https://www.google.com/search?q=' + encodeURIComponent((areaPrefix() + ' ' + d.name + ' 公式サイト').trim()) + '" target="_blank" rel="noopener">公式サイト・口コミを検索</a>' : '',
-            '<a href="#" data-sv="' + c[1] + ',' + c[0] + '">ストリートビュー</a>'
+            '<button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-sv="' + c[1] + ',' + c[0] + '">ストリートビュー</button>'
         ].filter(Boolean);
         rows.push('<div class="mt-1 small">' + links.join(' ・ ') + '</div>');
         return '<div style="max-width:240px">' + rows.join('<br>') + '</div>';
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // 一覧の項目を押すと、地図がその地点へ移動してポップアップが開く
     const renderList = (items) => {
-        surveyListEl.innerHTML = items.length ? items.map((item, i) => '<li><a href="#" data-sample="' + i + '">' + item.text + '</a></li>').join('') : '<li>対象データなし</li>';
+        surveyListEl.innerHTML = items.length ? items.map((item, i) => '<li><button type="button" class="btn btn-link btn-sm p-0 text-left" data-sample="' + i + '">' + item.text + '</button></li>').join('') : '<li>対象データなし</li>';
         surveyListEl.querySelectorAll('[data-sample]').forEach((a) => {
             a.addEventListener('click', (event) => {
                 event.preventDefault();

@@ -11,7 +11,7 @@
         <?= $this->Html->link('学校調査へ', ['controller' => 'AreaAnalysis', 'action' => 'schoolSurvey', '?' => ['area' => $area, 'city' => $city, 'year' => $year, 'district' => $district]], ['class' => 'btn btn-outline-secondary btn-sm']) ?>
     </div>
     <?= $this->element('analysis_filter', ['targetAction' => 'safetySurvey', 'area' => $area, 'city' => $city, 'year' => $year, 'district' => $district, 'areaOptions' => $areaOptions, 'cityOptions' => $cityOptions, 'yearOptions' => $yearOptions, 'districtOptions' => $districtOptions]) ?>
-    <div id="map" class="map-canvas"></div>
+    <div id="map" class="map-canvas" role="region" aria-label="防災・規制の地図"></div>
     <div id="status" class="alert alert-secondary mt-3 mb-0" role="status"><span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span>読み込み中…</div>
 <?php $this->start('script'); ?>
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>

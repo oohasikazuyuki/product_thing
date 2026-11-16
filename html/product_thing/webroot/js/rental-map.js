@@ -291,7 +291,7 @@
         walkPlaying = false;
         if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
         const play = document.getElementById('walkPlay');
-        if (play) { play.textContent = '▶ 自動再生'; play.setAttribute('aria-pressed', 'false'); }
+        if (play) { play.innerHTML = '<span aria-hidden="true">▶</span> 自動再生'; }
     };
     const scheduleNextWalk = function () {
         if (walkTimer) { clearTimeout(walkTimer); }
@@ -373,8 +373,7 @@
         if (walkIndex >= walkPoints.length - 1) { showWalkPoint(0); }
         walkPlaying = true;
         const play = document.getElementById('walkPlay');
-        play.textContent = '⏸ 停止';
-        play.setAttribute('aria-pressed', 'true');
+        play.innerHTML = '<span aria-hidden="true">⏸</span> 停止';
         if (walkBack.index === -1 || walkBack.ready) { scheduleNextWalk(); }
     };
 
@@ -496,7 +495,7 @@
     // 元ページ（SUUMO）へのリンク。http(s) 以外は出さない
     const detailLink = function (item, cls) {
         return /^https?:\/\//.test(item.detail_url || '')
-            ? '<a class="' + cls + '" href="' + escapeHtml(item.detail_url) + '" target="_blank" rel="noopener">SUUMOで詳細を見る</a>'
+            ? '<a class="' + cls + '" href="' + escapeHtml(item.detail_url) + '" target="_blank" rel="noopener" aria-label="SUUMOで詳細を見る: ' + escapeHtml(item.name || '物件') + '（新しいタブ）">SUUMOで詳細を見る</a>'
             : '';
     };
 
@@ -563,7 +562,7 @@
     const favButton = function (item) {
         const on = !!favs[item.id];
         return '<button type="button" class="btn btn-link btn-sm p-0 listing-locate fav-btn" data-fav-id="' + escapeHtml(item.id) +
-            '" aria-pressed="' + on + '">' + (on ? '★ 保存済み' : '☆ お気に入り') + '</button>';
+            '" aria-pressed="' + on + '" aria-label="お気に入り: ' + escapeHtml(item.name || '物件') + '"><span class="fav-icon" aria-hidden="true">' + (on ? '★' : '☆') + '</span> お気に入り</button>';
     };
     const updateFavToggle = function () {
         const toggle = document.getElementById('favToggle');
@@ -707,10 +706,10 @@
                 favButton(item) +
                 detailLink(item, 'btn btn-link btn-sm p-0 listing-locate') +
                 (markersById[item.id]
-                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '">地図で見る</button>'
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-locate="' + escapeHtml(item.id) + '" aria-label="地図で見る: ' + escapeHtml(item.name || '物件') + '">地図で見る</button>'
                     : '') +
                 (routeUrl(item)
-                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-route-id="' + escapeHtml(item.id) + '">駅からの道のり</button>'
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 listing-locate" data-route-id="' + escapeHtml(item.id) + '" aria-label="駅からの道のり: ' + escapeHtml(item.name || '物件') + '">駅からの道のり</button>'
                     : '') +
                 '</div>' +
                 '</div>';
@@ -881,6 +880,7 @@
                 }
                 document.querySelectorAll('[data-basemap]').forEach(function (b) {
                     b.classList.toggle('active', b === button);
+                    b.setAttribute('aria-pressed', String(b === button));
                 });
             });
         });
@@ -910,8 +910,9 @@
         document.getElementById('rentalPager').addEventListener('click', function (event) {
             const button = event.target.closest('[data-page]');
             if (button && !button.disabled) {
-                searchRentals(Number(button.dataset.page));
-                document.getElementById('rentalResults').scrollTop = 0;
+                const results = document.getElementById('rentalResults');
+                searchRentals(Number(button.dataset.page)).then(function () { results.focus({ preventScroll: true }); }); // 押したボタンが消えるため、フォーカスを一覧へ移す
+                results.scrollTop = 0;
             }
         });
 
@@ -945,7 +946,7 @@
                     showFavorites();
                 } else {
                     const on = !!favs[id];
-                    fav.textContent = on ? '★ 保存済み' : '☆ お気に入り';
+                    fav.querySelector('.fav-icon').textContent = on ? '★' : '☆';
                     fav.setAttribute('aria-pressed', String(on));
                 }
                 updateFavToggle();

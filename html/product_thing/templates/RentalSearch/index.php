@@ -79,19 +79,19 @@ $this->assign('containerClass', 'container-fluid px-md-4');
     <div class="col-lg-7 mb-3">
         <div class="d-flex flex-wrap align-items-center mb-2 map-toolbar">
             <div class="btn-group btn-group-sm mr-2" role="group" aria-label="地図の種類">
-                <button type="button" class="btn btn-outline-secondary active" data-basemap="map">地図</button>
-                <button type="button" class="btn btn-outline-secondary" data-basemap="aerial">航空写真</button>
+                <button type="button" class="btn btn-outline-secondary active" data-basemap="map" aria-pressed="true">地図</button>
+                <button type="button" class="btn btn-outline-secondary" data-basemap="aerial" aria-pressed="false">航空写真</button>
             </div>
-            <button type="button" id="walkBtn" class="btn btn-sm btn-primary mr-2" hidden>🚶 ストリートビューで歩く</button>
+            <button type="button" id="walkBtn" class="btn btn-sm btn-primary mr-2" hidden><span aria-hidden="true">🚶</span> ストリートビューで歩く</button>
             <span id="searchStatus" class="small text-muted" role="status" aria-live="polite">条件を選んで「検索」を押してください。</span>
         </div>
-        <div id="rentalMap" class="map-canvas" role="img" aria-label="賃貸物件の地図"></div>
+        <div id="rentalMap" class="map-canvas" role="region" aria-label="賃貸物件の地図（物件は右の一覧と同じ内容です）"></div>
     </div>
     <div class="col-lg-5 mb-3">
         <div class="d-flex justify-content-between align-items-baseline mb-2">
             <h2 class="h6 mb-0">物件一覧</h2>
             <span class="d-flex align-items-baseline">
-                <span id="resultCount" class="small text-muted mr-2" role="status">—</span>
+                <span id="resultCount" class="small text-muted mr-2">—</span>
                 <button type="button" id="favToggle" class="btn btn-outline-secondary btn-sm" aria-pressed="false">★ お気に入り (0)</button>
             </span>
         </div>
@@ -112,7 +112,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
             </select>
         </div>
         <div id="layoutNote" class="small text-muted mb-2" hidden></div>
-        <div id="rentalResults" class="listing-scroll">
+        <div id="rentalResults" tabindex="-1" class="listing-scroll">
             <div class="listing-empty">条件を指定して検索してください。</div>
         </div>
         <nav id="rentalPager" class="mt-2" aria-label="ページ送り"></nav>
@@ -138,7 +138,7 @@ $this->assign('containerClass', 'container-fluid px-md-4');
             <div class="modal-footer justify-content-between">
                 <div>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="walkPrev">◀ 前へ</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="walkPlay" aria-pressed="false">▶ 自動再生</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="walkPlay"><span aria-hidden="true">▶</span> 自動再生</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="walkNext">次へ ▶</button>
                     <span class="btn-group btn-group-sm ml-2" role="group" aria-label="再生速度">
                         <button type="button" class="btn btn-outline-secondary" data-walk-speed="0.5" aria-pressed="false">0.5×</button>

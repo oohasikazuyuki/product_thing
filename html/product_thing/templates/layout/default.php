@@ -39,7 +39,7 @@ $navItems = [
     </div>
 </nav>
 
-<main id="main" class="<?= h($this->fetch('containerClass') ?: 'container') ?> mt-4 mb-5">
+<main id="main" tabindex="-1" class="<?= h($this->fetch('containerClass') ?: 'container') ?> mt-4 mb-5">
     <?= $this->Flash->render() ?>
     <?= $this->fetch('content') ?>
 </main>
