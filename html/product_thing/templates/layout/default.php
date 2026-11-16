@@ -17,7 +17,7 @@ $navItems = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($this->fetch('title') ?: '不動産取引情報システム') ?></title>
     <?= $this->Html->css('https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css') ?>
-    <?= $this->Html->css('app') ?>
+    <?= $this->Html->css('app.css?v=' . filemtime(WWW_ROOT . 'css' . DS . 'app.css')) ?>
     <?= $this->fetch('meta') ?>
     <?= $this->fetch('css') ?>
 </head>
